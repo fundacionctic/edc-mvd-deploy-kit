@@ -17,7 +17,7 @@ Use this checklist to verify your MVD deployment is correctly configured and ope
 - [ ] Run `task setup` (or it will run automatically on first build)
 - [ ] MVD repository cloned successfully
 - [ ] Correct branch checked out (`task info` shows `release/0.14.0`)
-- [ ] Source directory exists at `./edc-minimum-viable-dataspace`
+- [ ] Source directory exists at `./edc-mvds`
 
 ## Build Phase
 

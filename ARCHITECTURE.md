@@ -322,7 +322,7 @@ docker compose logs -f <service>
 ### Local Development
 
 1. Setup MVD source: `task setup` (automatically clones/updates the repository)
-2. Make changes to MVD source at `./edc-minimum-viable-dataspace`
+2. Make changes to MVD source at `./edc-mvds`
 3. Build images: `task build` (automatically ensures source is up-to-date)
 4. Restart services: `task restart`
 5. Re-seed if needed: `task seed`

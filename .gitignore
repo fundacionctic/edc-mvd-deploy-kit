@@ -29,6 +29,7 @@ Thumbs.db
 
 # EDC Minimum Viable Dataspace source code
 ./edc-minimum-viable-dataspace/*
+./edc-mvds/*
 
 .claude
 .task

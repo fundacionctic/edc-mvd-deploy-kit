@@ -138,7 +138,7 @@ eifede-mvds/
 │   ├── init-db.sql         # Database setup
 │   └── create-test-asset.sh
 │
-├── edc-minimum-viable-dataspace/  # MVD source (auto-cloned, gitignored)
+├── edc-mvds/  # MVD source (auto-cloned, gitignored)
 │
 ├── data/                         # Persistent data (gitignored)
 │   ├── postgres/
@@ -200,7 +200,7 @@ This deployment can communicate with:
 ## Next Steps
 
 ### For Development
-1. Modify source code in `../edc-minimum-viable-dataspace`
+1. Modify source code in `../edc-mvds`
 2. `task rebuild` to apply changes
 3. Use remote debugging (ports 1044-1046)
 

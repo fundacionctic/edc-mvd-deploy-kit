@@ -1,9 +1,8 @@
 version: "3"
 
 vars:
-  MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-minimum-viable-dataspace"
-  MVD_BRANCH: main
-  MVD_COMMIT: 69e4b0b
+  MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-mvds"
+  MVD_REF: 69e4b0b # Can be a branch name (e.g., 'main', 'release/0.14.0') or commit ID (e.g., '69e4b0b')
   MVD_REPO_URL: https://github.com/eclipse-edc/MinimumViableDataspace
   DOCKER_IMAGES: "controlplane dataplane identity-hub"
 
@@ -14,39 +13,31 @@ tasks:
       - task --list
 
   setup-source:
-    desc: Clone or update MVD source repository
+    desc: Clone or update MVD source repository to specified branch or commit
     cmds:
-      - ./scripts/setup-mvd-source.sh "{{.MVD_SOURCE_DIR}}" "{{.MVD_BRANCH}}" "{{.MVD_REPO_URL}}"
-      - cd "{{.MVD_SOURCE_DIR}}" && git checkout "{{.MVD_COMMIT}}" && cd ..
+      - ./scripts/setup-mvd-source.sh "{{.MVD_SOURCE_DIR}}" "{{.MVD_REF}}" "{{.MVD_REPO_URL}}"
 
   build:
     desc: Build Docker images for all components (controlplane, dataplane, identity-hub)
     deps: [setup-source]
     dir: "{{.MVD_SOURCE_DIR}}"
     cmds:
-      - echo "Building MVD components..."
       - ./gradlew clean build
-      - echo "Creating Docker images..."
       - ./gradlew -Ppersistence=true dockerize
-      - echo "Docker images built successfully!"
     sources:
-      - "{{.MVD_SOURCE_DIR}}/launchers/**/*.java"
-      - "{{.MVD_SOURCE_DIR}}/extensions/**/*.java"
+      - "{{.MVD_SOURCE_DIR}}/**/*.java"
       - "{{.MVD_SOURCE_DIR}}/build.gradle.kts"
 
   up:
     desc: Start all MVD services (postgres, vault, identityhub, controlplane, dataplane)
     cmds:
-      - echo "Starting MVD services..."
       - docker compose up -d --build --wait
       - echo "Services started! Check status with 'task status'"
 
   down:
     desc: Stop all MVD services
     cmds:
-      - echo "Stopping MVD services..."
       - docker compose down
-      - echo "Services stopped"
 
   clean:
     desc: Stop services and remove all data (including volumes)
@@ -89,17 +80,6 @@ tasks:
       - task: down
       - task: up
 
-  health:
-    desc: Check health status of all services
-    cmds:
-      - echo "Checking IdentityHub..."
-      - curl -f http://localhost:7080/api/check/health || echo "IdentityHub - NOT HEALTHY"
-      - echo "Checking Controlplane..."
-      - curl -f http://localhost:8080/api/check/health || echo "Controlplane - NOT HEALTHY"
-      - echo "Checking Dataplane..."
-      - curl -f http://localhost:11003/api/check/health || echo "Dataplane - NOT HEALTHY"
-      - echo "Health check complete"
-
   shell:
     desc: Open a shell in a specific container (usage - task shell SERVICE=identityhub)
     cmds:
@@ -118,7 +98,6 @@ tasks:
   backup:
     desc: Backup PostgreSQL database
     cmds:
-      - echo "Creating database backup..."
       - mkdir -p ./backups
       - docker compose exec -T postgres pg_dump -U mvd_user mvd > ./backups/mvd-backup-$(date +%Y%m%d-%H%M%S).sql
       - echo "Backup created in ./backups/"
@@ -128,23 +107,12 @@ tasks:
     cmds:
       - echo "Restoring database from {{.BACKUP}}..."
       - docker compose exec -T postgres psql -U mvd_user -d mvd < {{.BACKUP}}
-      - echo "Database restored"
 
   test:
     desc: Quick test - create a test asset and policy on the connector
     cmds:
-      - echo "Creating test asset..."
       - ./scripts/create-test-asset.sh
       - echo "Test asset created. Check with Management API"
-
-  dev:
-    desc: Development mode - rebuild and restart on code changes
-    deps: [setup-source]
-    cmds:
-      - echo "Starting development mode (Ctrl+C to stop)..."
-      - task: build
-      - task: up
-      - echo "Watching for changes in {{.MVD_SOURCE_DIR}}..."
 
   setup:
     desc: Clone or update the MVD source repository

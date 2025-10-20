@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Automatic Repository Management**: MVD source repository is now automatically cloned and managed
   - New `setup-mvd-source.sh` script that clones/updates the repository from GitHub
   - Repository URL configurable via `MVD_REPO_URL` variable in Taskfile.yml
-  - Source directory moved to `./edc-minimum-viable-dataspace` (within project root)
+  - Source directory moved to `./edc-mvds` (within project root)
   - Automatic gitignore for source directory
 
 - **New Task: `task setup`**: Manually clone or update the MVD source repository
@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- **Source Directory Location**: Changed from `../edc-minimum-viable-dataspace` to `./edc-minimum-viable-dataspace`
+- **Source Directory Location**: Changed from `../edc-mvds` to `./edc-mvds`
   - Source is now within the project directory
   - Automatically added to .gitignore
   - More intuitive project structure

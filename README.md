@@ -155,7 +155,7 @@ Run `task --list` to see all available tasks:
 The deployment automatically manages the EDC MVD source repository:
 
 - **Repository**: https://github.com/eclipse-edc/MinimumViableDataspace
-- **Default Location**: `../edc-minimum-viable-dataspace`
+- **Default Location**: `../edc-mvds`
 - **Default Branch**: `release/0.14.0`
 
 The repository is automatically cloned and updated when needed. To customize:

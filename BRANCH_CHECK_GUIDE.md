@@ -17,7 +17,7 @@ The repository settings are configured as variables in `Taskfile.yml`:
 
 ```yaml
 vars:
-  MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-minimum-viable-dataspace"
+  MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-mvds"
   MVD_BRANCH: release/0.14.0  # Change this to your desired branch
   MVD_REPO_URL: https://github.com/eclipse-edc/MinimumViableDataspace
 ```
@@ -60,14 +60,14 @@ Output example:
 ```
 Setting up MVD source repository...
   Repository: https://github.com/eclipse-edc/MinimumViableDataspace
-  Target directory: ./edc-minimum-viable-dataspace
+  Target directory: ./edc-mvds
   Branch: release/0.14.0
 
 Cloning repository...
 ✓ Repository cloned successfully
 
 ✓ MVD source setup complete!
-  Location: ./edc-minimum-viable-dataspace
+  Location: ./edc-mvds
   Branch: release/0.14.0
   Current commit: dff9149 - Prepare release 0.14.0
 ```
@@ -82,7 +82,7 @@ Output example:
 ```
 MVD Source Configuration:
   Repository: https://github.com/eclipse-edc/MinimumViableDataspace
-  Directory: ./edc-minimum-viable-dataspace
+  Directory: ./edc-mvds
   Expected Branch: release/0.14.0
 
 Current Status:
@@ -107,7 +107,7 @@ Output:
 ```
 Setting up MVD source repository...
   Repository: https://github.com/eclipse-edc/MinimumViableDataspace
-  Target directory: ./edc-minimum-viable-dataspace
+  Target directory: ./edc-mvds
   Branch: release/0.14.0
 
 Directory exists, checking if it's a git repository...
@@ -117,7 +117,7 @@ Checking out branch: release/0.14.0
 Pulling latest changes...
 
 ✓ MVD source setup complete!
-  Location: ./edc-minimum-viable-dataspace
+  Location: ./edc-mvds
   Branch: release/0.14.0
   Current commit: dff9149 - Prepare release 0.14.0
 
@@ -130,7 +130,7 @@ If you manually change branches in the source directory, the setup task will det
 
 ```bash
 # Manually switch branch
-cd ./edc-minimum-viable-dataspace
+cd ./edc-mvds
 git checkout main
 cd ..
 
@@ -340,7 +340,7 @@ In CI/CD pipelines, you may want to:
 **Check**:
 1. Network connectivity: `ping github.com`
 2. Git is installed: `git --version`
-3. Directory permissions: `ls -la ./edc-minimum-viable-dataspace`
+3. Directory permissions: `ls -la ./edc-mvds`
 4. Repository URL in Taskfile.yml is correct
 
 ### Issue: Cannot switch branches

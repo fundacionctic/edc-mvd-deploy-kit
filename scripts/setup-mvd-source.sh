@@ -3,18 +3,23 @@
 set -e
 
 MVD_SOURCE_DIR="${1}"
-MVD_BRANCH="${2}"
+MVD_REF="${2}"  # Can be a branch name or commit ID
 MVD_REPO_URL="${3:-https://github.com/eclipse-edc/MinimumViableDataspace}"
 
-if [ -z "$MVD_SOURCE_DIR" ] || [ -z "$MVD_BRANCH" ]; then
-  echo "Usage: $0 <mvd_source_dir> <branch> [repo_url]"
+if [ -z "$MVD_SOURCE_DIR" ] || [ -z "$MVD_REF" ]; then
+  echo "Usage: $0 <mvd_source_dir> <branch_or_commit> [repo_url]"
+  echo ""
+  echo "Examples:"
+  echo "  $0 ./edc-mvd main"
+  echo "  $0 ./edc-mvd 69e4b0b"
+  echo "  $0 ./edc-mvd release/0.14.0"
   exit 1
 fi
 
 echo "Setting up MVD source repository..."
 echo "  Repository: $MVD_REPO_URL"
 echo "  Target directory: $MVD_SOURCE_DIR"
-echo "  Branch: $MVD_BRANCH"
+echo "  Target ref: $MVD_REF"
 echo ""
 
 # Check if directory exists
@@ -45,11 +50,18 @@ if [ -d "$MVD_SOURCE_DIR" ]; then
     echo "Fetching latest changes..."
     git fetch origin
 
-    echo "Checking out branch: $MVD_BRANCH"
-    git checkout "$MVD_BRANCH"
+    echo "Checking out ref: $MVD_REF"
 
-    echo "Pulling latest changes..."
-    git pull origin "$MVD_BRANCH"
+    # Check if MVD_REF is a branch by checking if it exists as a remote branch
+    if git rev-parse --verify "origin/$MVD_REF" >/dev/null 2>&1; then
+      echo "✓ Detected as branch"
+      git checkout "$MVD_REF"
+      git pull origin "$MVD_REF"
+    else
+      # Try to checkout as commit ID or tag
+      echo "✓ Detected as commit ID or tag"
+      git checkout "$MVD_REF"
+    fi
 
   else
     echo "ERROR: Directory exists but is not a git repository!"
@@ -62,14 +74,26 @@ if [ -d "$MVD_SOURCE_DIR" ]; then
 
 else
   echo "Cloning repository..."
-  git clone --branch "$MVD_BRANCH" "$MVD_REPO_URL" "$MVD_SOURCE_DIR"
+
+  # Check if MVD_REF looks like a commit hash (7-40 hex chars)
+  if [[ "$MVD_REF" =~ ^[0-9a-f]{7,40}$ ]]; then
+    # Clone without specifying branch, then checkout commit
+    git clone "$MVD_REPO_URL" "$MVD_SOURCE_DIR"
+    cd "$MVD_SOURCE_DIR"
+    git checkout "$MVD_REF"
+    cd - > /dev/null
+  else
+    # Clone with branch specified
+    git clone --branch "$MVD_REF" "$MVD_REPO_URL" "$MVD_SOURCE_DIR"
+  fi
+
   echo "✓ Repository cloned successfully"
 fi
 
 echo ""
 echo "✓ MVD source setup complete!"
 echo "  Location: $MVD_SOURCE_DIR"
-echo "  Branch: $MVD_BRANCH"
+echo "  Ref: $MVD_REF"
 
 # Show current commit
 cd "$MVD_SOURCE_DIR"
