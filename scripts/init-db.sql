@@ -1,8 +1,6 @@
 -- Initialize PostgreSQL database for MVD
--- Create user and database for the MVD components
+-- The database and user are created via environment variables in compose.yaml
+-- This script can be used for additional initialization if needed
 
-CREATE USER mvd_user WITH ENCRYPTED PASSWORD 'mvd_password' SUPERUSER;
-CREATE DATABASE mvd;
-
--- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE mvd TO mvd_user;
+-- Example: Create extensions, schemas, or seed data here
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
