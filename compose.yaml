@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL database - shared storage for IdentityHub and Connector
@@ -51,12 +51,12 @@ services:
     volumes:
       - ./assets/credentials:/etc/credentials:ro
     ports:
-      - "7080:7080"  # Main API
-      - "7081:7081"  # Credentials API
-      - "7082:7082"  # Identity API
-      - "7083:7083"  # DID endpoint
-      - "7086:7086"  # STS API
-      - "1044:1044"  # Debug port
+      - "7080:7080" # Main API
+      - "7081:7081" # Credentials API
+      - "7082:7082" # Identity API
+      - "7083:7083" # DID endpoint
+      - "7086:7086" # STS API
+      - "1044:1044" # Debug port
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,12 +80,12 @@ services:
     volumes:
       - ./assets/participants:/etc/participants:ro
     ports:
-      - "8080:8080"  # Main API
-      - "8081:8081"  # Management API
-      - "8082:8082"  # DSP Protocol endpoint
-      - "8083:8083"  # Control API
-      - "8084:8084"  # Catalog API
-      - "1045:1044"  # Debug port
+      - "8080:8080" # Main API
+      - "8081:8081" # Management API
+      - "8082:8082" # DSP Protocol endpoint
+      - "8083:8083" # Control API
+      - "8084:8084" # Catalog API
+      - "1045:1044" # Debug port
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,10 +109,10 @@ services:
     env_file:
       - ./config/dataplane.env
     ports:
-      - "11001:11001"  # Public API
-      - "11002:11002"  # Control API
-      - "11003:11003"  # Main API
-      - "1046:1044"    # Debug port
+      - "11001:11001" # Public API
+      - "11002:11002" # Control API
+      - "11003:11003" # Main API
+      - "1046:1044" # Debug port
     depends_on:
       postgres:
         condition: service_healthy

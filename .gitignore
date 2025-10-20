@@ -26,3 +26,9 @@ Thumbs.db
 *.tmp
 *.swp
 *~
+
+# EDC Minimum Viable Dataspace source code
+./edc-minimum-viable-dataspace/*
+
+.claude
+.task

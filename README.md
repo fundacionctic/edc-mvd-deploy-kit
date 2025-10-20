@@ -45,24 +45,44 @@ graph TB
 
 - **Docker** and **Docker Compose** (v2.0+)
 - **Task** (Taskfile task runner) - [Installation guide](https://taskfile.dev/installation/)
+- **Git** (for cloning the MVD source repository)
 - **curl** and **jq** (for seeding scripts)
-- Access to the MVD source repository at `../edc-minimum-viable-dataspace`
 
 ## Quick Start
 
-### 1. Build Docker Images
+### 1. Setup MVD Source Repository
 
-First, build the Docker images from the MVD source:
+The deployment automatically clones and manages the EDC Minimum Viable Dataspace source repository. To set it up:
+
+```bash
+task setup
+```
+
+This will:
+- Clone the MVD repository from GitHub (if not already present)
+- Checkout the correct branch (`release/0.14.0` by default)
+- Update to the latest commit on that branch
+
+To check the current source status:
+
+```bash
+task info
+```
+
+### 2. Build Docker Images
+
+Build the Docker images from the MVD source:
 
 ```bash
 task build
 ```
 
 This will:
+- Automatically setup/update the MVD source (if needed)
 - Build the Java components using Gradle
 - Create Docker images with persistence enabled (`controlplane:latest`, `dataplane:latest`, `identity-hub:latest`)
 
-### 2. Start Services
+### 3. Start Services
 
 Start all services with Docker Compose:
 
@@ -77,7 +97,7 @@ This starts:
 - Controlplane
 - Dataplane
 
-### 3. Seed the Dataspace
+### 4. Seed the Dataspace
 
 Initialize the dataspace with participant contexts and test data:
 
@@ -91,7 +111,7 @@ This creates:
 - Test asset and policies
 - Contract definition
 
-### 4. Verify Deployment
+### 5. Verify Deployment
 
 Check that all services are healthy:
 
@@ -111,8 +131,9 @@ Run `task --list` to see all available tasks:
 
 | Task | Description |
 |------|-------------|
+| `task setup` | Clone or update the MVD source repository |
 | `task info` | Show MVD source directory and branch information |
-| `task build` | Build Docker images from MVD source (checks branch) |
+| `task build` | Build Docker images from MVD source (auto-setup) |
 | `task up` | Start all services |
 | `task down` | Stop all services |
 | `task restart` | Restart all services |
@@ -122,29 +143,41 @@ Run `task --list` to see all available tasks:
 | `task seed` | Seed dataspace with initial data |
 | `task health` | Check health of all services |
 | `task clean` | Stop services and remove all data |
-| `task rebuild` | Rebuild images and restart (checks branch) |
-| `task dev` | Development mode - rebuild and restart (checks branch) |
+| `task rebuild` | Rebuild images and restart (auto-setup) |
+| `task dev` | Development mode - rebuild and restart (auto-setup) |
 | `task db` | Connect to PostgreSQL database |
 | `task vault` | Check Vault status |
 | `task backup` | Backup database |
 | `task restore BACKUP=<file>` | Restore database from backup |
 
-### Branch Management
+### Source Repository Management
 
-The Taskfile includes automatic branch verification for build tasks. The expected branch is configured in the `MVD_BRANCH` variable (default: `release/0.14.0`).
+The deployment automatically manages the EDC MVD source repository:
 
-To change the expected branch, edit `Taskfile.yml`:
+- **Repository**: https://github.com/eclipse-edc/MinimumViableDataspace
+- **Default Location**: `../edc-minimum-viable-dataspace`
+- **Default Branch**: `release/0.14.0`
+
+The repository is automatically cloned and updated when needed. To customize:
+
+**Change the branch or repository URL** - Edit `Taskfile.yml`:
 ```yaml
 vars:
   MVD_BRANCH: main  # or any other branch
+  MVD_REPO_URL: https://github.com/your-fork/MinimumViableDataspace
 ```
 
-To check current branch status:
+**Manual setup/update**:
+```bash
+task setup
+```
+
+**Check current status**:
 ```bash
 task info
 ```
 
-The `build`, `rebuild`, and `dev` tasks will automatically verify the branch and prompt for confirmation if there's a mismatch.
+The source repository is gitignored and will not be committed to this repository.
 
 ## Service Endpoints
 
