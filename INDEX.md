@@ -72,6 +72,7 @@ Welcome to the MVD Single-Instance Docker Compose Deployment! This index will he
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 523 lines - Architecture documentation
 - **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** - 173 lines - Deployment verification
 - **[SUMMARY.md](SUMMARY.md)** - 246 lines - High-level overview
+- **[BRANCH_CHECK_GUIDE.md](BRANCH_CHECK_GUIDE.md)** - Branch verification feature guide
 - **[LICENSE](LICENSE)** - Apache 2.0 License
 
 ## 🎯 Quick Access by Topic
@@ -83,6 +84,8 @@ Welcome to the MVD Single-Instance Docker Compose Deployment! This index will he
 - [Seeding Data](README.md#3-seed-the-dataspace)
 
 ### Configuration
+- [Branch Management](README.md#branch-management)
+- [Branch Check Guide](BRANCH_CHECK_GUIDE.md)
 - [Service Endpoints](README.md#service-endpoints)
 - [Environment Variables](ARCHITECTURE.md#environment-variables)
 - [Default Credentials](SUMMARY.md#default-credentials)
@@ -151,6 +154,9 @@ Welcome to the MVD Single-Instance Docker Compose Deployment! This index will he
 
 **...change the configuration?**
 → Edit files in [config/](config/)
+
+**...change the MVD branch?**
+→ [BRANCH_CHECK_GUIDE.md](BRANCH_CHECK_GUIDE.md#changing-the-expected-branch)
 
 **...prepare for production?**
 → [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md#production-readiness-checklist)
