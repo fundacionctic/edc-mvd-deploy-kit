@@ -2,25 +2,23 @@ version: "3"
 
 vars:
   MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-minimum-viable-dataspace"
+  MVD_BRANCH: main
   MVD_COMMIT: 69e4b0b
   MVD_REPO_URL: https://github.com/eclipse-edc/MinimumViableDataspace
   DOCKER_IMAGES: "controlplane dataplane identity-hub"
 
 tasks:
-  # Default task - shows help
   default:
     desc: Show available tasks
     cmds:
       - task --list
 
-  # Internal task: Setup MVD source repository
   setup-source:
     desc: Clone or update MVD source repository
     cmds:
-      - ./scripts/setup-mvd-source.sh "{{.MVD_SOURCE_DIR}}" "{{.MVD_REPO_URL}}"
-      - git checkout "{{.MVD_COMMIT}}"
+      - ./scripts/setup-mvd-source.sh "{{.MVD_SOURCE_DIR}}" "{{.MVD_BRANCH}}" "{{.MVD_REPO_URL}}"
+      - cd "{{.MVD_SOURCE_DIR}}" && git checkout "{{.MVD_COMMIT}}" && cd ..
 
-  # Build Docker images from MVD source
   build:
     desc: Build Docker images for all components (controlplane, dataplane, identity-hub)
     deps: [setup-source]
@@ -36,7 +34,6 @@ tasks:
       - "{{.MVD_SOURCE_DIR}}/extensions/**/*.java"
       - "{{.MVD_SOURCE_DIR}}/build.gradle.kts"
 
-  # Start all services
   up:
     desc: Start all MVD services (postgres, vault, identityhub, controlplane, dataplane)
     cmds:
@@ -44,7 +41,6 @@ tasks:
       - docker compose up -d --build --wait
       - echo "Services started! Check status with 'task status'"
 
-  # Stop all services
   down:
     desc: Stop all MVD services
     cmds:
@@ -52,36 +48,29 @@ tasks:
       - docker compose down
       - echo "Services stopped"
 
-  # Stop and remove all data
   clean:
     desc: Stop services and remove all data (including volumes)
     prompt: This will delete all data. Are you sure?
     cmds:
       - echo "Stopping services and removing data..."
       - docker compose down -v
-      - rm -rf ./data/postgres/*
-      - rm -rf ./data/vault/*
       - echo "All data removed"
 
-  # Show service status
   status:
     desc: Show status of all services
     cmds:
       - docker compose ps
 
-  # Show logs for all services
   logs:
     desc: Show logs for all services
     cmds:
       - docker compose logs -f
 
-  # Show logs for a specific service
   logs-service:
     desc: Show logs for a specific service (usage - task logs-service SERVICE=identityhub)
     cmds:
       - docker compose logs -f {{.SERVICE}}
 
-  # Seed the dataspace with initial data
   seed:
     desc: Seed the dataspace with participant contexts and test data
     cmds:
@@ -89,14 +78,12 @@ tasks:
       - ./scripts/seed.sh
       - echo "Dataspace seeded successfully!"
 
-  # Restart all services
   restart:
     desc: Restart all services
     cmds:
       - task: down
       - task: up
 
-  # Rebuild and restart
   rebuild:
     desc: Rebuild images and restart services
     deps: [setup-source]
@@ -105,7 +92,6 @@ tasks:
       - task: down
       - task: up
 
-  # Verify health of all services
   health:
     desc: Check health status of all services
     cmds:
@@ -117,25 +103,21 @@ tasks:
       - curl -f http://localhost:11003/api/check/health || echo "Dataplane - NOT HEALTHY"
       - echo "Health check complete"
 
-  # Run a shell in a specific container
   shell:
     desc: Open a shell in a specific container (usage - task shell SERVICE=identityhub)
     cmds:
       - docker compose exec {{.SERVICE}} sh
 
-  # View PostgreSQL database
   db:
     desc: Connect to PostgreSQL database
     cmds:
       - docker compose exec postgres psql -U mvd_user -d mvd
 
-  # View Vault status
   vault:
     desc: Check Vault status
     cmds:
       - docker compose exec vault vault status
 
-  # Backup database
   backup:
     desc: Backup PostgreSQL database
     cmds:
@@ -144,7 +126,6 @@ tasks:
       - docker compose exec -T postgres pg_dump -U mvd_user mvd > ./backups/mvd-backup-$(date +%Y%m%d-%H%M%S).sql
       - echo "Backup created in ./backups/"
 
-  # Restore database
   restore:
     desc: Restore PostgreSQL database from backup (usage - task restore BACKUP=./backups/mvd-backup-YYYYMMDD-HHMMSS.sql)
     cmds:
@@ -152,7 +133,6 @@ tasks:
       - docker compose exec -T postgres psql -U mvd_user -d mvd < {{.BACKUP}}
       - echo "Database restored"
 
-  # Quick test - create asset and policy
   test:
     desc: Quick test - create a test asset and policy on the connector
     cmds:
@@ -160,7 +140,6 @@ tasks:
       - ./scripts/create-test-asset.sh
       - echo "Test asset created. Check with Management API"
 
-  # Development workflow - watch and rebuild on changes
   dev:
     desc: Development mode - rebuild and restart on code changes
     deps: [setup-source]
@@ -170,7 +149,6 @@ tasks:
       - task: up
       - echo "Watching for changes in {{.MVD_SOURCE_DIR}}..."
 
-  # Setup or update MVD source repository
   setup:
     desc: Clone or update the MVD source repository
     cmds:

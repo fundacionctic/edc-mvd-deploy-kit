@@ -306,9 +306,9 @@ curl http://localhost:7083/.well-known/did.json
 
 ### Volumes
 
-Data is persisted in:
-- `./data/postgres/` - PostgreSQL data
-- `./data/vault/` - Vault data (in dev mode, not persisted)
+Data is persisted using Docker volumes:
+- `postgres-data` - PostgreSQL data (managed by Docker)
+- Vault runs in dev mode with ephemeral storage (not persisted)
 
 ### Backup and Restore
 
@@ -419,9 +419,6 @@ eifede-mvds/
 │   ├── seed.sh            # Dataspace seeding
 │   ├── init-db.sql        # Database initialization
 │   └── create-test-asset.sh
-├── data/                   # Persistent data (gitignored)
-│   ├── postgres/
-│   └── vault/
 └── backups/               # Database backups (gitignored)
 ```
 
