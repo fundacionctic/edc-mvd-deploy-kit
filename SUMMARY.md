@@ -18,16 +18,20 @@ This repository contains a complete, production-ready (with caveats) single-inst
 - `config/controlplane.env` - Controlplane configuration
 - `config/dataplane.env` - Dataplane configuration
 
-### Scripts (3)
+### Scripts (5)
+- `scripts/setup-mvd-source.sh` - Clone/update MVD repository
+- `scripts/check-branch.sh` - Verify repository branch
 - `scripts/seed.sh` - Initialize dataspace with participant and test data
 - `scripts/init-db.sql` - PostgreSQL initialization
 - `scripts/create-test-asset.sh` - Create test assets
 
-### Documentation (5)
+### Documentation (7)
 - `README.md` - Complete user guide
 - `QUICKSTART.md` - 5-minute getting started guide
 - `ARCHITECTURE.md` - Detailed architecture documentation
 - `DEPLOYMENT_CHECKLIST.md` - Deployment verification
+- `BRANCH_CHECK_GUIDE.md` - Source repository management guide
+- `INDEX.md` - Documentation index
 - `SUMMARY.md` - This file
 
 ### Task Automation (1)
@@ -42,6 +46,8 @@ This repository contains a complete, production-ready (with caveats) single-inst
 
 ✅ **Single Command Deployment**: `task build && task up && task seed`
 
+✅ **Automatic Source Management**: Automatically clones and updates MVD repository from GitHub
+
 ✅ **Complete Persistence**: PostgreSQL + Vault for stateful operations
 
 ✅ **Production-Ready Architecture**: Separated controlplane/dataplane, secure vault
@@ -50,9 +56,9 @@ This repository contains a complete, production-ready (with caveats) single-inst
 
 ✅ **Developer-Friendly**: Remote debugging, comprehensive logging, easy configuration
 
-✅ **Task Automation**: Lifecycle management via Taskfile (build, deploy, backup, restore, etc.)
+✅ **Task Automation**: Lifecycle management via Taskfile (15+ tasks)
 
-✅ **Comprehensive Documentation**: README, Architecture guide, Quick start, Checklist
+✅ **Comprehensive Documentation**: 7 markdown files with guides and references
 
 ## Exposed Endpoints
 
@@ -77,8 +83,14 @@ This repository contains a complete, production-ready (with caveats) single-inst
 ## Quick Start Commands
 
 ```bash
-# Complete setup (first time)
+# Complete setup (first time) - automatically clones MVD repo
 task build && task up && task seed
+
+# Manual source setup (optional)
+task setup
+
+# Check source status
+task info
 
 # Daily development
 task restart
@@ -98,35 +110,41 @@ task clean
 
 ```
 eifede-mvds/
-├── compose.yaml              # Docker Compose configuration
-├── Taskfile.yml             # Task automation
-├── README.md                # User guide
-├── QUICKSTART.md           # Quick start guide
-├── ARCHITECTURE.md         # Architecture documentation
-├── DEPLOYMENT_CHECKLIST.md # Deployment verification
-├── LICENSE                 # Apache 2.0 License
-├── .gitignore             # Git ignore rules
+├── compose.yaml                  # Docker Compose configuration
+├── Taskfile.yml                 # Task automation
+├── README.md                    # User guide
+├── QUICKSTART.md               # Quick start guide
+├── ARCHITECTURE.md             # Architecture documentation
+├── DEPLOYMENT_CHECKLIST.md     # Deployment verification
+├── BRANCH_CHECK_GUIDE.md       # Source management guide
+├── INDEX.md                    # Documentation index
+├── LICENSE                     # Apache 2.0 License
+├── .gitignore                 # Git ignore rules
 │
-├── config/                # Service configurations
+├── config/                    # Service configurations
 │   ├── identityhub.env
 │   ├── controlplane.env
 │   └── dataplane.env
 │
-├── assets/                # Static assets
-│   ├── credentials/       # Verifiable credentials
-│   ├── keys/             # Cryptographic keys
-│   └── participants/     # Participant list
+├── assets/                    # Static assets
+│   ├── credentials/           # Verifiable credentials
+│   ├── keys/                 # Cryptographic keys
+│   └── participants/         # Participant list
 │
-├── scripts/              # Helper scripts
-│   ├── seed.sh          # Dataspace initialization
-│   ├── init-db.sql      # Database setup
+├── scripts/                  # Helper scripts
+│   ├── setup-mvd-source.sh  # Clone/update MVD repo
+│   ├── check-branch.sh      # Branch verification
+│   ├── seed.sh             # Dataspace initialization
+│   ├── init-db.sql         # Database setup
 │   └── create-test-asset.sh
 │
-├── data/                # Persistent data (gitignored)
+├── edc-minimum-viable-dataspace/  # MVD source (auto-cloned, gitignored)
+│
+├── data/                         # Persistent data (gitignored)
 │   ├── postgres/
 │   └── vault/
 │
-└── backups/            # Database backups (gitignored)
+└── backups/                     # Database backups (gitignored)
 ```
 
 ## Differences from Original MVD

@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-10-20
+
+### Added
+
+- **Automatic Repository Management**: MVD source repository is now automatically cloned and managed
+  - New `setup-mvd-source.sh` script that clones/updates the repository from GitHub
+  - Repository URL configurable via `MVD_REPO_URL` variable in Taskfile.yml
+  - Source directory moved to `./edc-minimum-viable-dataspace` (within project root)
+  - Automatic gitignore for source directory
+
+- **New Task: `task setup`**: Manually clone or update the MVD source repository
+  - Clones repository if not present
+  - Updates to latest commit if already cloned
+  - Verifies repository URL matches configuration
+  - Checks out correct branch
+
+- **Enhanced `task info`**: Now shows repository URL and whether source exists
+
+### Changed
+
+- **Source Directory Location**: Changed from `../edc-minimum-viable-dataspace` to `./edc-minimum-viable-dataspace`
+  - Source is now within the project directory
+  - Automatically added to .gitignore
+  - More intuitive project structure
+
+- **Build Workflow**: `task build`, `task rebuild`, and `task dev` now automatically run `setup-source`
+  - No manual repository setup required
+  - Always ensures source is up-to-date before building
+  - Eliminates manual git operations
+
+- **Documentation Updates**:
+  - Converted all ASCII diagrams in ARCHITECTURE.md to Mermaid format
+  - Updated README.md with automatic setup workflow
+  - Renamed BRANCH_CHECK_GUIDE.md to Source Repository Management Guide
+  - Updated QUICKSTART.md to reflect automatic setup
+  - Updated DEPLOYMENT_CHECKLIST.md with source setup phase
+  - Updated SUMMARY.md with new scripts and directory structure
+  - Updated INDEX.md with new documentation references
+
+### Improved
+
+- **User Experience**: No longer need to manually clone or manage MVD repository
+- **Consistency**: All users get the same source repository automatically
+- **Reliability**: Automated setup reduces configuration errors
+- **Documentation**: All diagrams now use modern Mermaid format for better rendering
+
+### Technical Details
+
+The automatic setup workflow:
+1. `setup-mvd-source.sh` checks if directory exists
+2. If not, clones from configured repository URL
+3. If exists, fetches latest changes and updates
+4. Checks out the configured branch
+5. Verifies repository URL matches expectations
+
 ## [1.1.0] - 2025-10-20
 
 ### Added

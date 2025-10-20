@@ -1,45 +1,78 @@
-# Branch Check Feature Guide
+# Source Repository Management Guide
 
 ## Overview
 
-The Taskfile includes an automatic branch verification system that ensures the MVD source repository is on the correct branch before building Docker images. This prevents accidentally building from the wrong version of the codebase.
+This deployment automatically manages the EDC Minimum Viable Dataspace source repository. The Taskfile includes:
+- **Automatic cloning/updating** of the MVD repository from GitHub
+- **Branch verification** to ensure you're building from the correct version
+- **Easy configuration** of repository URL and branch
+
+This prevents version mismatches and ensures you always have the correct source code.
 
 ## How It Works
 
 ### Configuration
 
-The expected branch is configured as a variable in `Taskfile.yml`:
+The repository settings are configured as variables in `Taskfile.yml`:
 
 ```yaml
 vars:
-  MVD_SOURCE_DIR: ../edc-minimum-viable-dataspace
+  MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-minimum-viable-dataspace"
   MVD_BRANCH: release/0.14.0  # Change this to your desired branch
+  MVD_REPO_URL: https://github.com/eclipse-edc/MinimumViableDataspace
 ```
 
-### Internal Check Task
+The source directory is now located within the project root and is automatically gitignored.
 
-The `_check-branch` task is an internal task that:
-1. Changes to the MVD source directory
-2. Runs `git rev-parse --abbrev-ref HEAD` to get the current branch
-3. Compares the current branch with `MVD_BRANCH`
-4. If they don't match:
-   - Displays a warning message
-   - Shows the command to switch branches
-   - Prompts the user to continue or abort
-5. If they match:
-   - Displays a success message
-   - Continues with the build
+### How It Works
+
+The system consists of two main tasks:
+
+**1. `setup-source` (Internal Task)**:
+- Checks if the MVD source directory exists
+- If not, clones the repository from GitHub
+- If it exists, updates it to the latest commit
+- Checks out the configured branch
+- Verifies the repository URL matches expectations
+
+**2. `check-branch` (Internal Task)**:
+- Verifies the current branch matches `MVD_BRANCH`
+- Displays warnings if there's a mismatch
+- Prompts for confirmation to continue
 
 ### Affected Tasks
 
-The branch check automatically runs before these tasks:
-- `task build` - Build Docker images
-- `task rebuild` - Rebuild and restart
-- `task dev` - Development mode
+Automatic setup runs before these tasks:
+- `task build` - Build Docker images (runs `setup-source`)
+- `task rebuild` - Rebuild and restart (runs `setup-source`)
+- `task dev` - Development mode (runs `setup-source`)
+- `task setup` - Manual setup/update (calls `setup-source`)
 
 ## Usage Examples
 
-### Check Current Branch Status
+### First Time Setup
+
+```bash
+task setup
+```
+
+Output example:
+```
+Setting up MVD source repository...
+  Repository: https://github.com/eclipse-edc/MinimumViableDataspace
+  Target directory: ./edc-minimum-viable-dataspace
+  Branch: release/0.14.0
+
+Cloning repository...
+✓ Repository cloned successfully
+
+✓ MVD source setup complete!
+  Location: ./edc-minimum-viable-dataspace
+  Branch: release/0.14.0
+  Current commit: dff9149 - Prepare release 0.14.0
+```
+
+### Check Current Status
 
 ```bash
 task info
@@ -48,7 +81,8 @@ task info
 Output example:
 ```
 MVD Source Configuration:
-  Directory: ../edc-minimum-viable-dataspace
+  Repository: https://github.com/eclipse-edc/MinimumViableDataspace
+  Directory: ./edc-minimum-viable-dataspace
   Expected Branch: release/0.14.0
 
 Current Status:
@@ -61,9 +95,9 @@ dff9149 Prepare release 0.14.0
 9e98545 build(deps): bump io.rest-assured:rest-assured from 5.5.1 to 5.5.6 (#517)
 ```
 
-### Building with Correct Branch
+### Building (Automatic Setup)
 
-When on the correct branch:
+The build task automatically ensures the source is cloned and up-to-date:
 
 ```bash
 task build
@@ -71,32 +105,46 @@ task build
 
 Output:
 ```
-✓ MVD source is on correct branch: release/0.14.0
+Setting up MVD source repository...
+  Repository: https://github.com/eclipse-edc/MinimumViableDataspace
+  Target directory: ./edc-minimum-viable-dataspace
+  Branch: release/0.14.0
+
+Directory exists, checking if it's a git repository...
+✓ Git repository found
+Fetching latest changes...
+Checking out branch: release/0.14.0
+Pulling latest changes...
+
+✓ MVD source setup complete!
+  Location: ./edc-minimum-viable-dataspace
+  Branch: release/0.14.0
+  Current commit: dff9149 - Prepare release 0.14.0
+
 Building MVD components...
 ```
 
-### Building with Wrong Branch
+### Manual Branch Changes
 
-When on a different branch (e.g., `main`):
+If you manually change branches in the source directory, the setup task will detect and update it:
 
 ```bash
+# Manually switch branch
+cd ./edc-minimum-viable-dataspace
+git checkout main
+cd ..
+
+# Next build will switch back to configured branch
 task build
 ```
 
 Output:
 ```
-WARNING: MVD source is on branch 'main', expected 'release/0.14.0'
-         Source directory: ../edc-minimum-viable-dataspace
-
-To switch to the correct branch, run:
-  cd ../edc-minimum-viable-dataspace && git checkout release/0.14.0
-
-Continue anyway? [y/N]
+Setting up MVD source repository...
+Checking out branch: release/0.14.0
+Pulling latest changes...
+✓ MVD source setup complete!
 ```
-
-Options:
-- Press `y` or `Y` to continue building from the current branch
-- Press `n`, `N`, or Enter to abort
 
 ## Changing the Expected Branch
 
@@ -147,27 +195,23 @@ If you frequently switch between branches, you can:
 For bleeding-edge features:
 
 ```bash
-# Switch MVD source to main
-cd ../edc-minimum-viable-dataspace
-git checkout main
-git pull
-cd -
+# Update Taskfile.yml to use main branch
+nano Taskfile.yml
+# Change MVD_BRANCH to: main
 
-# Update Taskfile or use environment variable
-MVD_BRANCH=main task build
+# Build will automatically switch to main
+task build
 ```
 
 ### Scenario 3: Using a Specific Release
 
-For a stable release:
+For a stable release (this is the default):
 
 ```bash
-# Switch MVD source to release branch
-cd ../edc-minimum-viable-dataspace
-git checkout release/0.14.0
-cd -
+# Verify configuration in Taskfile.yml shows: release/0.14.0
+task info
 
-# Build (should pass check automatically)
+# Build (automatically uses correct branch)
 task build
 ```
 
@@ -176,32 +220,32 @@ task build
 For testing specific features:
 
 ```bash
-# Switch MVD source to feature branch
-cd ../edc-minimum-viable-dataspace
-git checkout feature/my-feature
-cd -
+# Update Taskfile.yml
+nano Taskfile.yml
+# Change MVD_BRANCH to: feature/my-feature
 
-# Build with override
-MVD_BRANCH=feature/my-feature task build
-
-# Or accept the prompt
-task build  # Press 'y' when prompted
+# Build will automatically switch to feature branch
+task build
 ```
 
 ## Error Handling
 
-### Error: Not a Git Repository
+### Error: Repository Clone Failed
 
 ```
-ERROR: Failed to determine git branch in ../edc-minimum-viable-dataspace
-       Is this a git repository?
+ERROR: Failed to clone repository
 ```
 
-**Solution**: Ensure the MVD source directory exists and is a git repository:
+**Solution**: Check network connectivity and repository URL:
 ```bash
-ls -la ../edc-minimum-viable-dataspace/.git
-cd ../edc-minimum-viable-dataspace
-git status
+# Verify you can reach GitHub
+ping github.com
+
+# Try manual clone
+git clone https://github.com/eclipse-edc/MinimumViableDataspace
+
+# Check Taskfile.yml has correct URL
+grep MVD_REPO_URL Taskfile.yml
 ```
 
 ### Error: Git Command Not Found
@@ -291,12 +335,13 @@ In CI/CD pipelines, you may want to:
 
 ## Troubleshooting
 
-### Issue: Branch check always fails
+### Issue: Setup keeps failing
 
 **Check**:
-1. Correct directory: `cd ../edc-minimum-viable-dataspace && pwd`
-2. Git repository: `cd ../edc-minimum-viable-dataspace && git status`
-3. Current branch: `cd ../edc-minimum-viable-dataspace && git branch`
+1. Network connectivity: `ping github.com`
+2. Git is installed: `git --version`
+3. Directory permissions: `ls -la ./edc-minimum-viable-dataspace`
+4. Repository URL in Taskfile.yml is correct
 
 ### Issue: Cannot switch branches
 

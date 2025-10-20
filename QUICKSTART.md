@@ -22,14 +22,6 @@ If any tool is missing, see the [Installation](#installation) section below.
 
 ## 5-Minute Setup
 
-### Step 0: Verify Branch (optional, 10 seconds)
-
-```bash
-task info
-```
-
-This shows you which branch the MVD source is on. The build will automatically check this.
-
 ### Step 1: Build Images (2-3 minutes)
 
 ```bash
@@ -37,10 +29,11 @@ task build
 ```
 
 Expected output:
-- Branch check: ✓ MVD source is on correct branch
+- Setting up MVD source repository...
+- ✓ MVD source setup complete!
 - Docker images built successfully!
 
-**Note**: If the branch doesn't match, you'll be prompted to confirm or abort.
+**Note**: The build task automatically clones/updates the MVD repository from GitHub.
 
 ### Step 2: Start Services (30 seconds)
 
@@ -100,7 +93,8 @@ task logs
 
 | What You Want | Command |
 |---------------|---------|
-| Check branch status | `task info` |
+| Setup/update source | `task setup` |
+| Check source status | `task info` |
 | Start everything | `task up` |
 | Stop everything | `task down` |
 | Restart everything | `task restart` |
@@ -155,19 +149,17 @@ choco install jq
 
 ## Troubleshooting
 
-### Wrong branch error
+### Repository clone fails
 
 ```bash
-# Check current branch
-task info
+# Check network connectivity
+ping github.com
 
-# Switch to correct branch
-cd ../edc-minimum-viable-dataspace
-git checkout release/0.14.0
-cd -
+# Check Git is installed
+git --version
 
-# Try building again
-task build
+# Try manual setup
+task setup
 ```
 
 ### Services won't start

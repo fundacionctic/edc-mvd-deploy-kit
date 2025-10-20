@@ -120,132 +120,56 @@ This document describes the architecture of the MVD single-instance Docker Compo
 
 ### 1. Participant Initialization (Seeding)
 
-```
-┌─────────┐
-│  Seed   │
-│ Script  │
-└────┬────┘
-     │
-     │ 1. Create Participant Context
-     ├──────────────────────────────────────────┐
-     │                                          │
-     ▼                                          ▼
-┌──────────────┐                         ┌──────────┐
-│              │  2. Store Participant   │          │
-│ IdentityHub  ├────────────────────────►│PostgreSQL│
-│              │                         │          │
-└──────┬───────┘                         └──────────┘
-       │                                       ▲
-       │ 3. Generate & Store Keys              │
-       ├───────────────────────────────────────┤
-       │                                       │
-       ▼                                       │
-┌──────────────┐                               │
-│              │  4. Store Secrets             │
-│    Vault     │◄──────────────────────────────┘
-│              │
-└──────┬───────┘
-       │
-       │ 5. Return Client Secret
-       ▼
-┌─────────────┐
-│   Seed      │  6. Store Secret in Controlplane
-│   Script    ├────────────────────┐
-└─────────────┘                    │
-                                   ▼
-                            ┌──────────────┐
-                            │              │
-                            │ Controlplane │
-                            │   (Vault)    │
-                            │              │
-                            └──────────────┘
+```mermaid
+sequenceDiagram
+    participant Script as Seed Script
+    participant IH as IdentityHub
+    participant PG as PostgreSQL
+    participant V as Vault
+    participant CP as Controlplane
+
+    Script->>IH: 1. Create Participant Context
+    IH->>PG: 2. Store Participant
+    IH->>V: 3. Generate & Store Keys
+    V->>IH: 4. Store Secrets
+    IH->>Script: 5. Return Client Secret
+    Script->>CP: 6. Store Secret in Controlplane (Vault)
 ```
 
 ### 2. DSP Request Flow (Catalog Request)
 
-```
-┌─────────────┐                                    ┌──────────────┐
-│   External  │  1. Catalog Request               │              │
-│ Connector   ├───────────────────────────────────►│ Controlplane │
-└─────────────┘                                    │   (DSP:8082) │
-                                                   └──────┬───────┘
-                                                          │
-                                                          │ 2. Extract Scopes
-                                                          │    from Request
-                                                          │
-                                                          │ 3. Request Token
-                                                          ▼
-                                                   ┌──────────────┐
-                                                   │              │
-                                                   │ IdentityHub  │
-                                                   │  (STS:7086)  │
-                                                   │              │
-                                                   └──────┬───────┘
-                                                          │
-                                                          │ 4. Generate Token
-                                                          │    with VCs
-                                                          │
-                                                          │ 5. Return Token
-                                                          ▼
-                                                   ┌──────────────┐
-                                                   │              │
-                                                   │ Controlplane │
-                                                   │              │
-                                                   └──────┬───────┘
-                                                          │
-                                                          │ 6. Validate Policy
-                                                          │    (Check VCs)
-                                                          │
-                                                          │ 7. Return Catalog
-                                                          ▼
-                                                   ┌──────────────┐
-                                                   │   External   │
-                                                   │  Connector   │
-                                                   └──────────────┘
+```mermaid
+sequenceDiagram
+    participant EC as External Connector
+    participant CP as Controlplane<br/>(DSP:8082)
+    participant IH as IdentityHub<br/>(STS:7086)
+
+    EC->>CP: 1. Catalog Request
+    CP->>CP: 2. Extract Scopes from Request
+    CP->>IH: 3. Request Token
+    IH->>IH: 4. Generate Token with VCs
+    IH->>CP: 5. Return Token
+    CP->>CP: 6. Validate Policy (Check VCs)
+    CP->>EC: 7. Return Catalog
 ```
 
 ### 3. Data Transfer Flow
 
-```
-┌──────────┐                                      ┌──────────────┐
-│ Consumer │  1. Initiate Transfer                │              │
-│          ├──────────────────────────────────────►│ Controlplane │
-└──────────┘                                      │  (Mgmt:8081) │
-                                                  └──────┬───────┘
-                                                         │
-                                                         │ 2. Create Transfer
-                                                         │    Process
-                                                         │
-                                                         │ 3. Select Dataplane
-                                                         ▼
-                                                  ┌──────────────┐
-                                                  │              │
-                                                  │  Dataplane   │
-                                                  │              │
-                                                  └──────┬───────┘
-                                                         │
-                                                         │ 4. Generate EDR
-                                                         │    (Endpoint Data
-                                                         │     Reference)
-                                                         │
-                                                         │ 5. Return EDR
-                                                         ▼
-                                                  ┌──────────────┐
-┌──────────┐                                     │              │
-│          │  6. Request EDR                     │ Controlplane │
-│ Consumer │◄────────────────────────────────────┤              │
-│          │                                     └──────────────┘
-└────┬─────┘
-     │
-     │ 7. Fetch Data with Token
-     │
-     ▼
-┌──────────────┐
-│              │  8. Verify Token
-│  Dataplane   │
-│ (Public API) │  9. Return Data
-│              │
-└──────────────┘
+```mermaid
+sequenceDiagram
+    participant C as Consumer
+    participant CP as Controlplane<br/>(Mgmt:8081)
+    participant DP as Dataplane<br/>(Public API)
+
+    C->>CP: 1. Initiate Transfer
+    CP->>CP: 2. Create Transfer Process
+    CP->>DP: 3. Select Dataplane
+    DP->>DP: 4. Generate EDR<br/>(Endpoint Data Reference)
+    DP->>CP: 5. Return EDR
+    CP->>C: 6. Request EDR
+    C->>DP: 7. Fetch Data with Token
+    DP->>DP: 8. Verify Token
+    DP->>C: 9. Return Data
 ```
 
 ## Security Architecture
@@ -397,10 +321,11 @@ docker compose logs -f <service>
 
 ### Local Development
 
-1. Make changes to MVD source at `../edc-minimum-viable-dataspace`
-2. Build images: `task build`
-3. Restart services: `task restart`
-4. Re-seed if needed: `task seed`
+1. Setup MVD source: `task setup` (automatically clones/updates the repository)
+2. Make changes to MVD source at `./edc-minimum-viable-dataspace`
+3. Build images: `task build` (automatically ensures source is up-to-date)
+4. Restart services: `task restart`
+5. Re-seed if needed: `task seed`
 
 ### Debugging
 

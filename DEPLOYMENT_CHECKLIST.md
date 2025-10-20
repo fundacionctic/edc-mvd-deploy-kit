@@ -7,13 +7,22 @@ Use this checklist to verify your MVD deployment is correctly configured and ope
 - [ ] Docker is installed and running (`docker --version`)
 - [ ] Docker Compose is installed (`docker compose version`)
 - [ ] Task is installed (`task --version`)
+- [ ] Git is installed (`git --version`)
 - [ ] jq is installed (`jq --version`)
-- [ ] MVD source code is available at `../edc-minimum-viable-dataspace`
+- [ ] Network connectivity to GitHub (`ping github.com`)
 - [ ] No port conflicts on: 5432, 7080-7086, 8080-8084, 8200, 11001-11003
+
+## Source Setup Phase
+
+- [ ] Run `task setup` (or it will run automatically on first build)
+- [ ] MVD repository cloned successfully
+- [ ] Correct branch checked out (`task info` shows `release/0.14.0`)
+- [ ] Source directory exists at `./edc-minimum-viable-dataspace`
 
 ## Build Phase
 
-- [ ] Run `task build`
+- [ ] Run `task build` (automatically sets up source if needed)
+- [ ] Source repository setup completed successfully
 - [ ] Verify Docker images are created:
   - [ ] `controlplane:latest`
   - [ ] `dataplane:latest`
