@@ -52,11 +52,8 @@ tasks:
     desc: Stop services and remove all data (including volumes)
     prompt: This will delete all data. Are you sure?
     cmds:
-      - echo "Stopping services and removing data..."
       - docker compose down -v
-      - rm -rf ./data/postgres/*
-      - rm -rf ./data/vault/*
-      - echo "All data removed"
+      - rm -fr {{.MVD_SOURCE_DIR}}
 
   status:
     desc: Show status of all services
@@ -76,9 +73,7 @@ tasks:
   seed:
     desc: Seed the dataspace with participant contexts and test data
     cmds:
-      - echo "Seeding dataspace..."
       - ./scripts/seed.sh
-      - echo "Dataspace seeded successfully!"
 
   restart:
     desc: Restart all services
