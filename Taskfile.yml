@@ -54,6 +54,8 @@ tasks:
     cmds:
       - echo "Stopping services and removing data..."
       - docker compose down -v
+      - rm -rf ./data/postgres/*
+      - rm -rf ./data/vault/*
       - echo "All data removed"
 
   status:
