@@ -16,27 +16,29 @@ This deployment is designed to be easily extensible for communication with other
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    MVD Docker Compose                        │
-│                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │              │    │              │    │              │  │
-│  │ IdentityHub  │◄───┤ Controlplane │◄───┤  Dataplane   │  │
-│  │   (7080+)    │    │   (8080+)    │    │  (11000+)    │  │
-│  │              │    │              │    │              │  │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
-│         │                   │                   │           │
-│         │                   │                   │           │
-│         ▼                   ▼                   ▼           │
-│  ┌──────────────┐    ┌─────────────────────────────────┐   │
-│  │              │    │                                 │   │
-│  │   Vault      │◄───┤        PostgreSQL               │   │
-│  │   (8200)     │    │         (5432)                  │   │
-│  │              │    │                                 │   │
-│  └──────────────┘    └─────────────────────────────────┘   │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph MVD["MVD Docker Compose"]
+        IH["IdentityHub<br/>Port 7080+"]
+        CP["Controlplane<br/>Port 8080+"]
+        DP["Dataplane<br/>Port 11000+"]
+        V["Vault<br/>Port 8200"]
+        PG["PostgreSQL<br/>Port 5432"]
+
+        DP --> CP
+        CP --> IH
+        IH --> V
+        IH --> PG
+        CP --> PG
+        DP --> PG
+    end
+
+    style MVD fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style IH fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style CP fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style DP fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style V fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style PG fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
 ```
 
 ## Prerequisites
