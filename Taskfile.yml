@@ -1,0 +1,224 @@
+version: '3'
+
+vars:
+  MVD_SOURCE_DIR: ../edc-minimum-viable-dataspace
+  MVD_BRANCH: release/0.14.0
+  DOCKER_IMAGES: "controlplane dataplane identity-hub"
+
+tasks:
+  # Default task - shows help
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # Internal task: Verify MVD source is on correct branch
+  _check-branch:
+    internal: true
+    desc: Verify that MVD source directory is on the correct branch
+    dir: '{{.MVD_SOURCE_DIR}}'
+    silent: true
+    cmds:
+      - |
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        if [ $? -ne 0 ]; then
+          echo "ERROR: Failed to determine git branch in {{.MVD_SOURCE_DIR}}"
+          echo "       Is this a git repository?"
+          exit 1
+        fi
+
+        if [ "$CURRENT_BRANCH" != "{{.MVD_BRANCH}}" ]; then
+          echo "WARNING: MVD source is on branch '$CURRENT_BRANCH', expected '{{.MVD_BRANCH}}'"
+          echo "         Source directory: {{.MVD_SOURCE_DIR}}"
+          echo ""
+          echo "To switch to the correct branch, run:"
+          echo "  cd {{.MVD_SOURCE_DIR}} && git checkout {{.MVD_BRANCH}}"
+          echo ""
+          read -p "Continue anyway? [y/N] " -n 1 -r
+          echo
+          if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Aborted."
+            exit 1
+          fi
+        else
+          echo "✓ MVD source is on correct branch: {{.MVD_BRANCH}}"
+        fi
+
+  # Build Docker images from MVD source
+  build:
+    desc: Build Docker images for all components (controlplane, dataplane, identity-hub)
+    deps: [_check-branch]
+    dir: '{{.MVD_SOURCE_DIR}}'
+    cmds:
+      - echo "Building MVD components..."
+      - ./gradlew clean build
+      - echo "Creating Docker images..."
+      - ./gradlew -Ppersistence=true dockerize
+      - echo "Docker images built successfully!"
+    sources:
+      - '{{.MVD_SOURCE_DIR}}/launchers/**/*.java'
+      - '{{.MVD_SOURCE_DIR}}/extensions/**/*.java'
+      - '{{.MVD_SOURCE_DIR}}/build.gradle.kts'
+
+  # Start all services
+  up:
+    desc: Start all MVD services (postgres, vault, identityhub, controlplane, dataplane)
+    cmds:
+      - echo "Starting MVD services..."
+      - docker compose up -d
+      - echo "Waiting for services to be healthy..."
+      - sleep 10
+      - docker compose ps
+      - echo "Services started! Check status with 'task status'"
+
+  # Stop all services
+  down:
+    desc: Stop all MVD services
+    cmds:
+      - echo "Stopping MVD services..."
+      - docker compose down
+      - echo "Services stopped"
+
+  # Stop and remove all data
+  clean:
+    desc: Stop services and remove all data (including volumes)
+    prompt: This will delete all data. Are you sure?
+    cmds:
+      - echo "Stopping services and removing data..."
+      - docker compose down -v
+      - rm -rf ./data/postgres/*
+      - rm -rf ./data/vault/*
+      - echo "All data removed"
+
+  # Show service status
+  status:
+    desc: Show status of all services
+    cmds:
+      - docker compose ps
+
+  # Show logs for all services
+  logs:
+    desc: Show logs for all services
+    cmds:
+      - docker compose logs -f
+
+  # Show logs for a specific service
+  logs-service:
+    desc: Show logs for a specific service (usage - task logs-service SERVICE=identityhub)
+    cmds:
+      - docker compose logs -f {{.SERVICE}}
+
+  # Seed the dataspace with initial data
+  seed:
+    desc: Seed the dataspace with participant contexts and test data
+    cmds:
+      - echo "Seeding dataspace..."
+      - ./scripts/seed.sh
+      - echo "Dataspace seeded successfully!"
+
+  # Restart all services
+  restart:
+    desc: Restart all services
+    cmds:
+      - task: down
+      - task: up
+
+  # Rebuild and restart
+  rebuild:
+    desc: Rebuild images and restart services
+    deps: [_check-branch]
+    cmds:
+      - task: build
+      - task: down
+      - task: up
+
+  # Verify health of all services
+  health:
+    desc: Check health status of all services
+    cmds:
+      - echo "Checking IdentityHub..."
+      - curl -f http://localhost:7080/api/check/health || echo "IdentityHub: NOT HEALTHY"
+      - echo "Checking Controlplane..."
+      - curl -f http://localhost:8080/api/check/health || echo "Controlplane: NOT HEALTHY"
+      - echo "Checking Dataplane..."
+      - curl -f http://localhost:11003/api/check/health || echo "Dataplane: NOT HEALTHY"
+      - echo "Health check complete"
+
+  # Run a shell in a specific container
+  shell:
+    desc: Open a shell in a specific container (usage - task shell SERVICE=identityhub)
+    cmds:
+      - docker compose exec {{.SERVICE}} sh
+
+  # View PostgreSQL database
+  db:
+    desc: Connect to PostgreSQL database
+    cmds:
+      - docker compose exec postgres psql -U mvd_user -d mvd
+
+  # View Vault status
+  vault:
+    desc: Check Vault status
+    cmds:
+      - docker compose exec vault vault status
+
+  # Backup database
+  backup:
+    desc: Backup PostgreSQL database
+    cmds:
+      - echo "Creating database backup..."
+      - mkdir -p ./backups
+      - docker compose exec -T postgres pg_dump -U mvd_user mvd > ./backups/mvd-backup-$(date +%Y%m%d-%H%M%S).sql
+      - echo "Backup created in ./backups/"
+
+  # Restore database
+  restore:
+    desc: Restore PostgreSQL database from backup (usage - task restore BACKUP=./backups/mvd-backup-YYYYMMDD-HHMMSS.sql)
+    cmds:
+      - echo "Restoring database from {{.BACKUP}}..."
+      - docker compose exec -T postgres psql -U mvd_user -d mvd < {{.BACKUP}}
+      - echo "Database restored"
+
+  # Quick test - create asset and policy
+  test:
+    desc: Quick test - create a test asset and policy on the connector
+    cmds:
+      - echo "Creating test asset..."
+      - ./scripts/create-test-asset.sh
+      - echo "Test asset created. Check with Management API"
+
+  # Development workflow - watch and rebuild on changes
+  dev:
+    desc: Development mode - rebuild and restart on code changes
+    deps: [_check-branch]
+    cmds:
+      - echo "Starting development mode (Ctrl+C to stop)..."
+      - task: build
+      - task: up
+      - echo "Watching for changes in {{.MVD_SOURCE_DIR}}..."
+
+  # Show current MVD branch information
+  info:
+    desc: Show MVD source directory information and current branch
+    dir: '{{.MVD_SOURCE_DIR}}'
+    cmds:
+      - echo "MVD Source Configuration:"
+      - echo "  Directory: {{.MVD_SOURCE_DIR}}"
+      - echo "  Expected Branch: {{.MVD_BRANCH}}"
+      - echo ""
+      - echo "Current Status:"
+      - |
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        if [ $? -eq 0 ]; then
+          echo "  Current Branch: $CURRENT_BRANCH"
+          if [ "$CURRENT_BRANCH" = "{{.MVD_BRANCH}}" ]; then
+            echo "  Status: ✓ On correct branch"
+          else
+            echo "  Status: ⚠ Branch mismatch!"
+          fi
+          echo ""
+          echo "Recent commits:"
+          git log --oneline -n 3
+        else
+          echo "  Status: ✗ Not a git repository or git not available"
+        fi

@@ -1,0 +1,30 @@
+# Ignore data directories
+data/postgres
+data/vault
+
+# Ignore backups
+backups
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore documentation (not needed in images)
+*.md
+
+# Ignore IDE files
+.idea
+.vscode
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Logs
+*.log
