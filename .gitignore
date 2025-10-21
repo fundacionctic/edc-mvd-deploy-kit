@@ -33,3 +33,15 @@ Thumbs.db
 
 .claude
 .task
+
+# Environment configuration
+.env
+
+# Generated configuration files
+config/*.env
+!config/*.env.template
+
+# Generated issuer files
+assets/issuer/did.json
+assets/issuer/*.pem
+config/issuer-nginx.conf
