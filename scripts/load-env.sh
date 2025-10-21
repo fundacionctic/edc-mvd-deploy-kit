@@ -144,7 +144,7 @@ fi
 # Internal URLs (from Docker containers)
 : ${VAULT_CONTAINER_URL:=http://vault:8200}
 : ${POSTGRES_CONTAINER_URL:=jdbc:postgresql://postgres:5432}
-: ${IDENTITYHUB_CONTAINER_URL:=http://identityhub:7082}
+: ${IDENTITYHUB_CONTAINER_URL:=http://identityhub:7086}
 : ${CONTROLPLANE_CONTAINER_URL:=http://controlplane:8082}
 
 # Export all defaults so they're available to calling scripts
