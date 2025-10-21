@@ -20,6 +20,10 @@ echo "Seeding MVD Dataspace (Docker Compose)"
 echo "====================================="
 echo ""
 
+# Get script directory to locate templates
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATES_DIR="$SCRIPT_DIR/templates"
+
 # Configuration
 API_KEY="c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo="
 PARTICIPANT_DID="did:web:identityhub%3A7083"
@@ -60,30 +64,18 @@ if [ -n "$EXISTING_PARTICIPANT" ]; then
   echo "✓ Assuming client secret already exists in vault"
   echo ""
 else
+  # Read and populate participant template
   PEM_PUBLIC=$(awk '{printf "%s\\n", $0}' assets/keys/consumer_public.pem)
-  DATA_PARTICIPANT=$(jq -n --arg pem "$PEM_PUBLIC" '{
-    "roles":[],
-    "serviceEndpoints":[
-      {
-        "type": "CredentialService",
-        "serviceEndpoint": "http://identityhub:7081/api/credentials/v1/participants/ZGlkOndlYjppZGVudGl0eWh1YiUzQTcwODM=",
-        "id": "credentialservice-1"
-      },
-      {
-        "type": "ProtocolEndpoint",
-        "serviceEndpoint": "http://controlplane:8082/api/dsp",
-        "id": "dsp-endpoint"
-      }
-    ],
-    "active": true,
-    "participantId": "'"$PARTICIPANT_DID"'",
-    "did": "'"$PARTICIPANT_DID"'",
-    "key":{
-      "keyId": "'"$PARTICIPANT_DID"'#key-1",
-      "privateKeyAlias": "key-1",
-      "publicKeyPem":"\($pem)"
-    }
-  }')
+  DATA_PARTICIPANT=$(jq \
+    --arg did "$PARTICIPANT_DID" \
+    --arg pem "$PEM_PUBLIC" \
+    '
+    .participantId = $did |
+    .did = $did |
+    .key.keyId = ($did + "#key-1") |
+    .key.publicKeyPem = $pem |
+    walk(if type == "string" then gsub("{{PARTICIPANT_DID}}"; $did) | gsub("{{PUBLIC_KEY_PEM}}"; $pem) else . end)
+    ' "$TEMPLATES_DIR/participant.json")
 
   # Create participant and capture client secret
   clientSecret=$(curl -s --location "$IDENTITY_HUB_URL/api/identity/v1alpha/participants/" \
@@ -102,14 +94,12 @@ else
 
   # Add client secret to the connector's vault
   echo "Adding client secret to Controlplane vault..."
-  SECRETS_DATA=$(jq -n --arg secret "$clientSecret" '{
-    "@context" : {
-      "edc" : "https://w3id.org/edc/v0.0.1/ns/"
-    },
-    "@type" : "https://w3id.org/edc/v0.0.1/ns/Secret",
-    "@id" : "'"$PARTICIPANT_DID"'-sts-client-secret",
-    "https://w3id.org/edc/v0.0.1/ns/value": "\($secret)"
-  }')
+  SECRET_ID="${PARTICIPANT_DID}-sts-client-secret"
+  SECRETS_DATA=$(jq \
+    --arg secretId "$SECRET_ID" \
+    --arg secretValue "$clientSecret" \
+    '."@id" = $secretId | ."https://w3id.org/edc/v0.0.1/ns/value" = $secretValue' \
+    "$TEMPLATES_DIR/secret.json")
 
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/secrets" \
     -H "x-api-key: password" \
@@ -133,22 +123,7 @@ fi
 
 # Create test asset
 echo "Creating test asset..."
-ASSET_DATA='{
-  "@context": {
-    "@vocab": "https://w3id.org/edc/v0.0.1/ns/"
-  },
-  "@id": "test-asset-1",
-  "properties": {
-    "name": "Test Asset 1",
-    "description": "A test asset for demonstrating MVD",
-    "contenttype": "application/json"
-  },
-  "dataAddress": {
-    "@type": "DataAddress",
-    "type": "HttpData",
-    "baseUrl": "http://dataplane:11001/api/public/test-data"
-  }
-}'
+ASSET_DATA=$(cat "$TEMPLATES_DIR/asset.json")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/assets" \
   -H "x-api-key: password" \
@@ -165,26 +140,7 @@ echo ""
 
 # Create access policy
 echo "Creating access policy..."
-POLICY_DATA='{
-  "@context": [
-    "https://w3id.org/edc/connector/management/v0.0.1"
-  ],
-  "@id": "membership-policy",
-  "@type": "PolicyDefinition",
-  "policy": {
-    "@type": "Set",
-    "permission": [
-      {
-        "action": "use",
-        "constraint": {
-          "leftOperand": "MembershipCredential",
-          "operator": "eq",
-          "rightOperand": "active"
-        }
-      }
-    ]
-  }
-}'
+POLICY_DATA=$(cat "$TEMPLATES_DIR/policy.json")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/policydefinitions" \
   -H "x-api-key: password" \
@@ -201,22 +157,7 @@ echo ""
 
 # Create contract definition
 echo "Creating contract definition..."
-CONTRACT_DATA='{
-  "@context": {
-    "@vocab": "https://w3id.org/edc/v0.0.1/ns/"
-  },
-  "@id": "test-contract-def",
-  "@type": "ContractDefinition",
-  "accessPolicyId": "membership-policy",
-  "contractPolicyId": "membership-policy",
-  "assetsSelector": [
-    {
-      "operandLeft": "https://w3id.org/edc/v0.0.1/ns/id",
-      "operator": "=",
-      "operandRight": "test-asset-1"
-    }
-  ]
-}'
+CONTRACT_DATA=$(cat "$TEMPLATES_DIR/contract-definition.json")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/contractdefinitions" \
   -H "x-api-key: password" \

@@ -1,0 +1,23 @@
+{
+  "roles": [],
+  "serviceEndpoints": [
+    {
+      "type": "CredentialService",
+      "serviceEndpoint": "http://identityhub:7081/api/credentials/v1/participants/ZGlkOndlYjppZGVudGl0eWh1YiUzQTcwODM=",
+      "id": "credentialservice-1"
+    },
+    {
+      "type": "ProtocolEndpoint",
+      "serviceEndpoint": "http://controlplane:8082/api/dsp",
+      "id": "dsp-endpoint"
+    }
+  ],
+  "active": true,
+  "participantId": "{{PARTICIPANT_DID}}",
+  "did": "{{PARTICIPANT_DID}}",
+  "key": {
+    "keyId": "{{PARTICIPANT_DID}}#key-1",
+    "privateKeyAlias": "key-1",
+    "publicKeyPem": "{{PUBLIC_KEY_PEM}}"
+  }
+}
