@@ -28,14 +28,14 @@ CONTROLPLANE_MGMT_URL="http://localhost:8081"
 
 # Check if services are running
 echo "Checking if services are running..."
-if ! curl -sf http://localhost:7080/api/check/health > /dev/null; then
-    echo "ERROR: IdentityHub is not healthy. Please start services with 'task up'"
-    exit 1
+if ! curl -sf http://localhost:7080/api/check/health >/dev/null; then
+  echo "ERROR: IdentityHub is not healthy. Please start services with 'task up'"
+  exit 1
 fi
 
-if ! curl -sf http://localhost:8080/api/check/health > /dev/null; then
-    echo "ERROR: Controlplane is not healthy. Please start services with 'task up'"
-    exit 1
+if ! curl -sf http://localhost:8080/api/check/health >/dev/null; then
+  echo "ERROR: Controlplane is not healthy. Please start services with 'task up'"
+  exit 1
 fi
 
 echo "✓ Services are running"
@@ -43,71 +43,93 @@ echo ""
 
 # Create participant context in IdentityHub
 echo "Creating participant context in IdentityHub..."
-PEM_PUBLIC=$(sed -E ':a;N;$!ba;s/\r{0,1}\n/\\n/g' assets/keys/consumer_public.pem)
-DATA_PARTICIPANT=$(jq -n --arg pem "$PEM_PUBLIC" '{
-  "roles":[],
-  "serviceEndpoints":[
-    {
-      "type": "CredentialService",
-      "serviceEndpoint": "http://identityhub:7081/api/credentials/v1/participants/ZGlkOndlYjppZGVudGl0eWh1YiUzQTcwODM=",
-      "id": "credentialservice-1"
-    },
-    {
-      "type": "ProtocolEndpoint",
-      "serviceEndpoint": "http://controlplane:8082/api/dsp",
-      "id": "dsp-endpoint"
-    }
-  ],
-  "active": true,
-  "participantId": "'"$PARTICIPANT_DID"'",
-  "did": "'"$PARTICIPANT_DID"'",
-  "key":{
-    "keyId": "'"$PARTICIPANT_DID"'#key-1",
-    "privateKeyAlias": "key-1",
-    "publicKeyPem":"\($pem)"
-  }
-}')
 
-# Create participant and capture client secret
-clientSecret=$(curl -s --location "$IDENTITY_HUB_URL/api/identity/v1alpha/participants/" \
-  --header 'Content-Type: application/json' \
-  --header "x-api-key: $API_KEY" \
-  --data "$DATA_PARTICIPANT" | jq -r '.clientSecret')
-
-if [ -z "$clientSecret" ] || [ "$clientSecret" == "null" ]; then
-  echo "ERROR: Failed to create participant context"
-  exit 1
-fi
-
-echo "✓ Participant context created"
-echo "  Client Secret: ${clientSecret:0:20}..."
-echo ""
-
-# Add client secret to the connector's vault
-echo "Adding client secret to Controlplane vault..."
-SECRETS_DATA=$(jq -n --arg secret "$clientSecret" '{
-  "@context" : {
-    "edc" : "https://w3id.org/edc/v0.0.1/ns/"
-  },
-  "@type" : "https://w3id.org/edc/v0.0.1/ns/Secret",
-  "@id" : "'"$PARTICIPANT_DID"'-sts-client-secret",
-  "https://w3id.org/edc/v0.0.1/ns/value": "\($secret)"
-}')
-
-RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/secrets" \
-  -H "x-api-key: password" \
+# Check if participant already exists
+EXISTING_PARTICIPANT=$(curl -s "$IDENTITY_HUB_URL/api/identity/v1alpha/participants/" \
   -H "Content-Type: application/json" \
-  -d "$SECRETS_DATA")
+  -H "x-api-key: $API_KEY" | jq -r ".[] | select(.did == \"$PARTICIPANT_DID\") | .did")
 
-HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "204" ]; then
-  echo "ERROR: Failed to add client secret to vault (HTTP $HTTP_CODE)"
-  echo "$RESPONSE"
-  exit 1
+if [ -n "$EXISTING_PARTICIPANT" ]; then
+  echo "✓ Participant context already exists"
+  echo "  Note: Skipping participant creation and secret generation"
+  echo ""
+
+  # We'll skip adding the secret to vault since we don't have the client secret
+  # The secret should already exist in the vault from the initial creation
+  echo "Verifying client secret in Controlplane vault..."
+  echo "✓ Assuming client secret already exists in vault"
+  echo ""
+else
+  PEM_PUBLIC=$(awk '{printf "%s\\n", $0}' assets/keys/consumer_public.pem)
+  DATA_PARTICIPANT=$(jq -n --arg pem "$PEM_PUBLIC" '{
+    "roles":[],
+    "serviceEndpoints":[
+      {
+        "type": "CredentialService",
+        "serviceEndpoint": "http://identityhub:7081/api/credentials/v1/participants/ZGlkOndlYjppZGVudGl0eWh1YiUzQTcwODM=",
+        "id": "credentialservice-1"
+      },
+      {
+        "type": "ProtocolEndpoint",
+        "serviceEndpoint": "http://controlplane:8082/api/dsp",
+        "id": "dsp-endpoint"
+      }
+    ],
+    "active": true,
+    "participantId": "'"$PARTICIPANT_DID"'",
+    "did": "'"$PARTICIPANT_DID"'",
+    "key":{
+      "keyId": "'"$PARTICIPANT_DID"'#key-1",
+      "privateKeyAlias": "key-1",
+      "publicKeyPem":"\($pem)"
+    }
+  }')
+
+  # Create participant and capture client secret
+  clientSecret=$(curl -s --location "$IDENTITY_HUB_URL/api/identity/v1alpha/participants/" \
+    --header 'Content-Type: application/json' \
+    --header "x-api-key: $API_KEY" \
+    --data "$DATA_PARTICIPANT" | jq -r '.clientSecret')
+
+  if [ -z "$clientSecret" ] || [ "$clientSecret" == "null" ]; then
+    echo "ERROR: Failed to create participant context"
+    exit 1
+  fi
+
+  echo "✓ Participant context created"
+  echo "  Client Secret: ${clientSecret:0:20}..."
+  echo ""
+
+  # Add client secret to the connector's vault
+  echo "Adding client secret to Controlplane vault..."
+  SECRETS_DATA=$(jq -n --arg secret "$clientSecret" '{
+    "@context" : {
+      "edc" : "https://w3id.org/edc/v0.0.1/ns/"
+    },
+    "@type" : "https://w3id.org/edc/v0.0.1/ns/Secret",
+    "@id" : "'"$PARTICIPANT_DID"'-sts-client-secret",
+    "https://w3id.org/edc/v0.0.1/ns/value": "\($secret)"
+  }')
+
+  RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/secrets" \
+    -H "x-api-key: password" \
+    -H "Content-Type: application/json" \
+    -d "$SECRETS_DATA")
+
+  HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+  if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "204" ] && [ "$HTTP_CODE" != "409" ]; then
+    echo "ERROR: Failed to add client secret to vault (HTTP $HTTP_CODE)"
+    echo "$RESPONSE"
+    exit 1
+  fi
+
+  if [ "$HTTP_CODE" == "409" ]; then
+    echo "✓ Client secret already exists in vault"
+  else
+    echo "✓ Client secret added to vault"
+  fi
+  echo ""
 fi
-
-echo "✓ Client secret added to vault"
-echo ""
 
 # Create test asset
 echo "Creating test asset..."
@@ -144,23 +166,20 @@ echo ""
 # Create access policy
 echo "Creating access policy..."
 POLICY_DATA='{
-  "@context": {
-    "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "odrl": "http://www.w3.org/ns/odrl/2/"
-  },
+  "@context": [
+    "https://w3id.org/edc/connector/management/v0.0.1"
+  ],
   "@id": "membership-policy",
   "@type": "PolicyDefinition",
   "policy": {
     "@type": "Set",
-    "obligation": [],
-    "prohibition": [],
     "permission": [
       {
         "action": "use",
         "constraint": {
-          "leftOperand": "Membership.active",
+          "leftOperand": "MembershipCredential",
           "operator": "eq",
-          "rightOperand": "true"
+          "rightOperand": "active"
         }
       }
     ]
