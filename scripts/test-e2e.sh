@@ -14,23 +14,46 @@ echo "MVD End-to-End Self-Negotiation Test"
 echo "============================================="
 echo ""
 
+# Default configuration (can be overridden by environment)
+: "${E2E_SKIP_VAULT_CONFIG:=false}"
+: "${E2E_NEGOTIATION_WAIT_SECONDS:=3}"
+: "${E2E_SHOW_VERBOSE_OUTPUT:=false}"
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Load environment configuration
+set -a
+source "$ROOT_DIR/.env"
+set +a
+
 # Configuration
-MGMT_URL="http://localhost:8081"
-DSP_URL="http://controlplane:8082/api/dsp"
-API_KEY="password"
-PARTICIPANT_DID="did:web:identityhub%3A7083"
+MGMT_URL="$CONTROLPLANE_MGMT_HOST_URL"
+DSP_URL="$CONTROLPLANE_CONTAINER_URL/api/dsp"
+API_KEY="$MANAGEMENT_API_KEY"
+VAULT_CONFIG_SCRIPT="$SCRIPT_DIR/configure-vault-key.sh"
 
 # Ensure private key is in vault
-echo "🔑 Step 0: Configure private key in Vault"
-echo "--------------------------------------------"
-if [ ! -f "scripts/configure-vault-key.sh" ]; then
-  echo "❌ Error: configure-vault-key.sh not found"
-  exit 1
-fi
+if [ "$E2E_SKIP_VAULT_CONFIG" != "true" ]; then
+  echo "🔑 Step 0: Configure private key in Vault"
+  echo "--------------------------------------------"
+  if [ ! -f "$VAULT_CONFIG_SCRIPT" ]; then
+    echo "❌ Error: Vault configuration script not found: $VAULT_CONFIG_SCRIPT"
+    exit 1
+  fi
 
-./scripts/configure-vault-key.sh >/dev/null 2>&1
-echo "✓ Private key configured"
-echo ""
+  if [ "$E2E_SHOW_VERBOSE_OUTPUT" = "true" ]; then
+    "$VAULT_CONFIG_SCRIPT"
+  else
+    "$VAULT_CONFIG_SCRIPT" >/dev/null 2>&1
+  fi
+  echo "✓ Private key configured"
+  echo ""
+else
+  echo "⚠️  Skipping vault configuration (E2E_SKIP_VAULT_CONFIG=true)"
+  echo ""
+fi
 
 # Step 1: List assets
 echo "📋 Step 1: List available assets"
@@ -79,8 +102,8 @@ if echo "$CATALOG" | jq -e '.[0].message' >/dev/null 2>&1; then
     echo "Current participant DID: $PARTICIPANT_DID"
     echo ""
     echo "Checking existing credentials..."
-    CREDS=$(curl -s "http://localhost:7082/api/identity/v1alpha/participants/$PARTICIPANT_DID/credentials" \
-      -H "x-api-key: c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo=" 2>/dev/null || echo "[]")
+    CREDS=$(curl -s "http://localhost:${IDENTITYHUB_IDENTITY_PORT}/api/identity/v1alpha/participants/$PARTICIPANT_DID/credentials" \
+      -H "x-api-key: $SUPERUSER_API_KEY" 2>/dev/null || echo "[]")
 
     CRED_COUNT=$(echo "$CREDS" | jq 'length')
     if [ "$CRED_COUNT" -eq 0 ]; then
@@ -134,8 +157,8 @@ else
     if [ -n "$NEG_ID" ]; then
       echo "✓ Negotiation initiated: $NEG_ID"
       echo ""
-      echo "Waiting for negotiation to finalize..."
-      sleep 3
+      echo "Waiting for negotiation to finalize ($E2E_NEGOTIATION_WAIT_SECONDS seconds)..."
+      sleep "$E2E_NEGOTIATION_WAIT_SECONDS"
 
       # Step 4: Check negotiation status
       echo ""

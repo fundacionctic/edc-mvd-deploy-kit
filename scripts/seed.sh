@@ -20,30 +20,50 @@ echo "Seeding MVD Dataspace (Docker Compose)"
 echo "====================================="
 echo ""
 
-# Get script directory to locate templates
+# Default configuration (can be overridden by environment)
+: "${SEED_SKIP_HEALTH_CHECK:=false}"
+: "${HEALTH_CHECK_TIMEOUT_SECONDS:=5}"
+
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/templates"
 
-# Configuration
-API_KEY="c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo="
-PARTICIPANT_DID="did:web:identityhub%3A7083"
-IDENTITY_HUB_URL="http://localhost:7082"
-CONTROLPLANE_MGMT_URL="http://localhost:8081"
+# Load environment configuration
+set -a
+source "$ROOT_DIR/.env"
+set +a
+
+# Set convenience variables from .env
+API_KEY="$SUPERUSER_API_KEY"
+IDENTITY_HUB_URL="$IDENTITYHUB_HOST_URL"
+CONTROLPLANE_MGMT_URL="$CONTROLPLANE_MGMT_HOST_URL"
+
+# Service health check URLs
+: "${IDENTITYHUB_HEALTH_URL:=http://localhost:${IDENTITYHUB_PORT}/api/check/health}"
+: "${CONTROLPLANE_HEALTH_URL:=http://localhost:${CONTROLPLANE_PORT}/api/check/health}"
 
 # Check if services are running
-echo "Checking if services are running..."
-if ! curl -sf http://localhost:7080/api/check/health >/dev/null; then
-  echo "ERROR: IdentityHub is not healthy. Please start services with 'task up'"
-  exit 1
-fi
+if [ "$SEED_SKIP_HEALTH_CHECK" != "true" ]; then
+  echo "Checking if services are running..."
+  if ! curl -sf --max-time "$HEALTH_CHECK_TIMEOUT_SECONDS" "$IDENTITYHUB_HEALTH_URL" >/dev/null; then
+    echo "ERROR: IdentityHub is not healthy at $IDENTITYHUB_HEALTH_URL"
+    echo "       Please start services with 'task up'"
+    exit 1
+  fi
 
-if ! curl -sf http://localhost:8080/api/check/health >/dev/null; then
-  echo "ERROR: Controlplane is not healthy. Please start services with 'task up'"
-  exit 1
-fi
+  if ! curl -sf --max-time "$HEALTH_CHECK_TIMEOUT_SECONDS" "$CONTROLPLANE_HEALTH_URL" >/dev/null; then
+    echo "ERROR: Controlplane is not healthy at $CONTROLPLANE_HEALTH_URL"
+    echo "       Please start services with 'task up'"
+    exit 1
+  fi
 
-echo "✓ Services are running"
-echo ""
+  echo "✓ Services are running"
+  echo ""
+else
+  echo "⚠️  Skipping health check (SEED_SKIP_HEALTH_CHECK=true)"
+  echo ""
+fi
 
 # Create participant context in IdentityHub
 echo "Creating participant context in IdentityHub..."
@@ -65,7 +85,7 @@ if [ -n "$EXISTING_PARTICIPANT" ]; then
   echo ""
 else
   # Read and populate participant template
-  PEM_PUBLIC=$(awk '{printf "%s\\n", $0}' assets/keys/consumer_public.pem)
+  PEM_PUBLIC=$(awk '{printf "%s\\n", $0}' "$ROOT_DIR/$PARTICIPANT_PUBLIC_KEY_FILE")
   DATA_PARTICIPANT=$(jq \
     --arg did "$PARTICIPANT_DID" \
     --arg pem "$PEM_PUBLIC" \
@@ -102,7 +122,7 @@ else
     "$TEMPLATES_DIR/secret.json")
 
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/secrets" \
-    -H "x-api-key: password" \
+    -H "x-api-key: $MANAGEMENT_API_KEY" \
     -H "Content-Type: application/json" \
     -d "$SECRETS_DATA")
 
@@ -126,7 +146,7 @@ echo "Creating test asset..."
 ASSET_DATA=$(cat "$TEMPLATES_DIR/asset.json")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/assets" \
-  -H "x-api-key: password" \
+  -H "x-api-key: $MANAGEMENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$ASSET_DATA")
 
@@ -143,7 +163,7 @@ echo "Creating access policy..."
 POLICY_DATA=$(cat "$TEMPLATES_DIR/policy.json")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/policydefinitions" \
-  -H "x-api-key: password" \
+  -H "x-api-key: $MANAGEMENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$POLICY_DATA")
 
@@ -160,7 +180,7 @@ echo "Creating contract definition..."
 CONTRACT_DATA=$(cat "$TEMPLATES_DIR/contract-definition.json")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CONTROLPLANE_MGMT_URL/api/management/v3/contractdefinitions" \
-  -H "x-api-key: password" \
+  -H "x-api-key: $MANAGEMENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$CONTRACT_DATA")
 
@@ -178,11 +198,11 @@ echo "====================================="
 echo ""
 echo "Participant ID: $PARTICIPANT_DID"
 echo "Management API: $CONTROLPLANE_MGMT_URL/api/management"
-echo "DSP Endpoint: http://localhost:8082/api/dsp"
-echo "DID Document: http://localhost:7083/.well-known/did.json"
+echo "DSP Endpoint: http://localhost:${CONTROLPLANE_DSP_PORT}/api/dsp"
+echo "DID Document: http://localhost:${IDENTITYHUB_DID_PORT}/.well-known/did.json"
 echo ""
 echo "You can now:"
-echo "  - Query the catalog: curl http://localhost:8084/api/catalog -H 'x-api-key: password'"
-echo "  - Access Management API: curl http://localhost:8081/api/management/v3/assets -H 'x-api-key: password'"
-echo "  - View DID document: curl http://localhost:7083/.well-known/did.json"
+echo "  - Query the catalog: curl http://localhost:${CONTROLPLANE_CATALOG_PORT}/api/catalog -H 'x-api-key: $CATALOG_API_KEY'"
+echo "  - Access Management API: curl http://localhost:${CONTROLPLANE_MGMT_PORT}/api/management/v3/assets -H 'x-api-key: $MANAGEMENT_API_KEY'"
+echo "  - View DID document: curl http://localhost:${IDENTITYHUB_DID_PORT}/.well-known/did.json"
 echo ""

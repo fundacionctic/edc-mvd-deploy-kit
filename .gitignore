@@ -45,3 +45,6 @@ config/*.env
 assets/issuer/did.json
 assets/issuer/*.pem
 config/issuer-nginx.conf
+
+# Generated participant files
+assets/participants/participants.json

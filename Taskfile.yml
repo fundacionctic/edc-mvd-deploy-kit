@@ -28,9 +28,28 @@ tasks:
       - "{{.MVD_SOURCE_DIR}}/**/*.java"
       - "{{.MVD_SOURCE_DIR}}/build.gradle.kts"
 
+  generate-config:
+    desc: Generate configuration files from templates using .env
+    cmds:
+      - ./scripts/generate-config.sh
+
+  validate-env:
+    desc: Validate .env configuration
+    cmds:
+      - |
+        if [ ! -f .env ]; then
+          echo "❌ Error: .env file not found"
+          echo "   Please create .env from .env.example first"
+          exit 1
+        fi
+        source scripts/load-env.sh
+        echo "✓ Environment configuration is valid"
+
   up:
     desc: Start all MVD services (postgres, vault, identityhub, controlplane, dataplane)
     cmds:
+      - task: generate-config
+      - docker network create mvd-network || true
       - docker compose up -d --build --wait
       - echo "Services started! Check status with 'task status'"
 
@@ -63,6 +82,7 @@ tasks:
 
   seed:
     desc: Seed the dataspace with participant contexts and test data
+    deps: [generate-config]
     cmds:
       - ./scripts/seed.sh
 
