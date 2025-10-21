@@ -11,6 +11,6 @@
   "dataAddress": {
     "@type": "DataAddress",
     "type": "HttpData",
-    "baseUrl": "http://dataplane:11001/api/public/test-data"
+    "baseUrl": "http://host.docker.internal:11001/api/public/test-data"
   }
 }

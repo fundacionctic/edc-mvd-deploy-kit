@@ -166,6 +166,30 @@ for file in "${EXPECTED_FILES[@]}"; do
   fi
 done
 
+# Validate host.docker.internal accessibility
+echo "  🔍 Checking host.docker.internal resolution..."
+if ping -c 1 -W 1000 host.docker.internal >/dev/null 2>&1; then
+  echo "  ✓ host.docker.internal resolves successfully"
+elif command -v nslookup >/dev/null 2>&1; then
+  if nslookup host.docker.internal >/dev/null 2>&1; then
+    echo "  ✓ host.docker.internal resolves successfully"
+  else
+    echo "  ⚠️  host.docker.internal resolution failed"
+    echo "     This is expected on Linux without Docker Desktop"
+    echo "     Use: docker run --add-host=host.docker.internal:host-gateway ..."
+  fi
+elif command -v getent >/dev/null 2>&1; then
+  if getent hosts host.docker.internal >/dev/null 2>&1; then
+    echo "  ✓ host.docker.internal resolves successfully"
+  else
+    echo "  ⚠️  host.docker.internal resolution failed"
+    echo "     This is expected on Linux without Docker Desktop"
+    echo "     Use: docker run --add-host=host.docker.internal:host-gateway ..."
+  fi
+else
+  echo "  ℹ️  Cannot validate host.docker.internal resolution (no ping/nslookup/getent)"
+fi
+
 if [ $VALIDATION_ERRORS -eq 0 ]; then
   echo "  ✓ All expected files generated"
 else

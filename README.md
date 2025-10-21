@@ -31,6 +31,22 @@ Your dataspace participant is now live and seeded with example data.
 * [Task](https://taskfile.dev/installation/)
 * Git, curl, jq, envsubst (typically preinstalled)
 
+### Linux Environment Setup
+
+**Docker Desktop Users (Recommended):**
+Docker Desktop automatically provides `host.docker.internal` hostname resolution. No additional configuration needed.
+
+**Linux without Docker Desktop:**
+If you're running Docker Engine directly on Linux (without Docker Desktop), you'll need to add hostname resolution for `host.docker.internal`:
+
+```bash
+# Quick setup: Add to docker-compose command
+docker-compose --add-host=host.docker.internal:host-gateway up
+
+# Alternative: Add to /etc/hosts
+echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
+```
+
 ---
 
 ## ⚙️ Configuration Overview

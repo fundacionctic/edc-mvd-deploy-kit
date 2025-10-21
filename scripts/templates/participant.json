@@ -3,12 +3,12 @@
   "serviceEndpoints": [
     {
       "type": "CredentialService",
-      "serviceEndpoint": "http://identityhub:7081/api/credentials/v1/participants/ZGlkOndlYjppZGVudGl0eWh1YiUzQTcwODM=",
+      "serviceEndpoint": "http://host.docker.internal:7081/api/credentials/v1/participants/ZGlkOndlYjpob3N0LmRvY2tlci5pbnRlcm5hbCUzQTcwODM=",
       "id": "credentialservice-1"
     },
     {
       "type": "ProtocolEndpoint",
-      "serviceEndpoint": "http://controlplane:8082/api/dsp",
+      "serviceEndpoint": "http://host.docker.internal:8082/api/dsp",
       "id": "dsp-endpoint"
     }
   ],
