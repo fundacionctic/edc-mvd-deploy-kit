@@ -35,7 +35,7 @@ tasks:
   setup-source:
     desc: Clone or update MVD source repository to specified branch or commit
     cmds:
-      - ./{{.MVD_SETUP_SCRIPT}} "{{.MVD_SOURCE_DIR}}" "{{.MVD_REF}}" "{{.MVD_REPO_URL}}"
+      - "{{.MVD_SETUP_SCRIPT}} {{.MVD_SOURCE_DIR}} {{.MVD_REF}} {{.MVD_REPO_URL}}"
 
   build:
     desc: Build Docker images for all components (controlplane, dataplane, identity-hub)
