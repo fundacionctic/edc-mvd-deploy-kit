@@ -49,8 +49,8 @@ The Issuer Service in the edc-mvds codebase is responsible for issuing Verifiabl
 
 | Type     | Purpose                      | Production Ready | Configuration                     |
 | -------- | ---------------------------- | ---------------- | --------------------------------- |
-| Demo     | Hardcoded test data          | ❌ No             | Minimal                           |
-| Database | SQL query against PostgreSQL | ✅ Yes            | Table, datasource, column mapping |
+| Demo     | Hardcoded test data          | ❌ No            | Minimal                           |
+| Database | SQL query against PostgreSQL | ✅ Yes           | Table, datasource, column mapping |
 
 #### Demo Attestation Example
 
@@ -250,8 +250,8 @@ sequenceDiagram
 
 ### 3.1 Services Required
 
-| Service         | Purpose                          | External Access           |
-| --------------- | -------------------------------- | ------------------------- |
+| Service         | Purpose                          | External Access            |
+| --------------- | -------------------------------- | -------------------------- |
 | Issuer Service  | Credential issuance & management | ✅ Yes (ports 10010-10016) |
 | PostgreSQL      | Attestation data & persistence   | ❌ Internal only           |
 | HashiCorp Vault | Key/secret management            | ❌ Internal only           |
@@ -492,7 +492,7 @@ http {
 
 **Location:** Extract from `deployment/issuer.tf` (lines 37-68)
 
-**Create file:** `init-issuer-db.sql`
+**Create file:** `deployment/init-issuer-db.sql` (in project root for Docker Compose volume mount)
 
 ```sql
 -- Create issuer user and database
@@ -874,7 +874,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - ./init-issuer-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./deployment/init-issuer-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - issuer-db-data:/var/lib/postgresql/data
     networks:
       - issuer-network
@@ -922,47 +922,8 @@ services:
       - "10015:10015" # Identity
       - "10016:10016" # DID
       - "1044:1044" # Debug
-    environment:
-      # HTTP Endpoints
-      WEB_HTTP_PORT: "10010"
-      WEB_HTTP_PATH: "/api"
-      WEB_HTTP_STS_PORT: "10011"
-      WEB_HTTP_STS_PATH: "/api/sts"
-      WEB_HTTP_ISSUANCE_PORT: "10012"
-      WEB_HTTP_ISSUANCE_PATH: "/api/issuance"
-      WEB_HTTP_ISSUERADMIN_PORT: "10013"
-      WEB_HTTP_ISSUERADMIN_PATH: "/api/admin"
-      WEB_HTTP_VERSION_PORT: "10014"
-      WEB_HTTP_VERSION_PATH: "/.well-known/api"
-      WEB_HTTP_IDENTITY_PORT: "10015"
-      WEB_HTTP_IDENTITY_PATH: "/api/identity"
-
-      # Database Configuration (Internal DNS)
-      EDC_DATASOURCE_DEFAULT_URL: "jdbc:postgresql://issuer-postgres:5432/issuer"
-      EDC_DATASOURCE_DEFAULT_USER: "issuer"
-      EDC_DATASOURCE_DEFAULT_PASSWORD: "issuer"
-      EDC_DATASOURCE_MEMBERSHIP_URL: "jdbc:postgresql://issuer-postgres:5432/issuer"
-      EDC_DATASOURCE_MEMBERSHIP_USER: "issuer"
-      EDC_DATASOURCE_MEMBERSHIP_PASSWORD: "issuer"
-
-      # Vault Configuration (Internal DNS)
-      EDC_VAULT_HASHICORP_URL: "http://issuer-vault:8200"
-      EDC_VAULT_HASHICORP_TOKEN: "root"
-
-      # Security & DID
-      EDC_IH_API_SUPERUSER_KEY: "c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo="
-      EDC_IAM_DID_WEB_USE_HTTPS: "false" # Change to "true" for internet
-      EDC_IAM_ACCESSTOKEN_JTI_VALIDATION: "true"
-
-      # Schema Management
-      EDC_SQL_SCHEMA_AUTOCREATE: "true"
-
-      # Key Management
-      EDC_ISSUER_STATUSLIST_SIGNING_KEY_ALIAS: "statuslist-signing-key"
-
-      # Debug
-      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044"
-
+    env_file:
+      - ./deployment/assets/env/issuerservice-docker.env
     depends_on:
       issuer-postgres:
         condition: service_healthy
@@ -1421,10 +1382,11 @@ config/
 
 Use templated configuration files with variable substitution at deployment time:
 
-```properties
-# issuerservice.env.tpl
-edc.ih.api.superuser.key=${ADMIN_API_KEY}
+```bash
+# issuerservice-docker.env.tpl
+EDC_IH_API_SUPERUSER_KEY=${ADMIN_API_KEY}
 EDC_DATASOURCE_DEFAULT_PASSWORD=${DB_PASSWORD}
+EDC_DATASOURCE_MEMBERSHIP_PASSWORD=${DB_PASSWORD}
 EDC_VAULT_HASHICORP_TOKEN=${VAULT_TOKEN}
 ```
 
@@ -1437,7 +1399,7 @@ export ADMIN_API_KEY=$(cat config/secrets/admin-api-key)
 export DB_PASSWORD=$(cat config/secrets/db-passwords)
 export VAULT_TOKEN=$(cat config/secrets/vault-token)
 
-envsubst < config/templates/issuerservice.env.tpl > deployment/assets/env/issuerservice.env
+envsubst < config/templates/issuerservice-docker.env.tpl > deployment/assets/env/issuerservice-docker.env
 docker-compose up -d
 ```
 
