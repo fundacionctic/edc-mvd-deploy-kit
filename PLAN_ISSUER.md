@@ -290,45 +290,39 @@ deployment/assets/
 └── issuer_public.pem              # Verification key
 ```
 
-### 4.2 Environment Variables & Configuration
+### 4.2 Configuration Architecture
 
-All configuration uses templated files where dynamic variables are substituted at deployment time. There is no distinction between variables passed to Docker Compose and those passed through Java properties files - all are treated uniformly.
+The issuer service configuration uses **environment variables** passed directly to the container. The Kubernetes deployment defines these in a ConfigMap.
 
-**Base Configuration File:** `deployment/assets/env/issuerservice.env`
+**Reference:** `deployment/modules/issuer/main.tf:115-158` (ConfigMap definition)
 
-#### Complete Issuer Service Variables
+**Note:** The file `deployment/assets/env/issuerservice.env` contains Java properties format (lowercase.dot.notation) but is **NOT used** in the Kubernetes deployment. It exists only as a reference. For Docker Compose, we use environment variables matching the Kubernetes ConfigMap.
 
-```properties
+#### Environment Variables (.env format)
+
+**Format:** `UPPERCASE_WITH_UNDERSCORES`
+
+Create file: `deployment/assets/env/issuerservice-docker.env`
+
+```bash
 # ============================================================
 # API ENDPOINT CONFIGURATION
 # ============================================================
-# Main API endpoint
-web.http.port=10010
-web.http.path=/api
-
-# Secure Token Service (STS)
-web.http.sts.port=10011
-web.http.sts.path=/api/sts
-
-# Credential issuance endpoint
-web.http.issuance.port=10012
-web.http.issuance.path=/api/issuance
-
-# Admin API (CRITICAL for seeding)
-web.http.issueradmin.port=10013
-web.http.issueradmin.path=/api/admin
-
-# Version/capabilities endpoint
-web.http.version.port=10014
-web.http.version.path=/.well-known/api
-
-# Identity service endpoint
-web.http.identity.port=10015
-web.http.identity.path=/api/identity
-
-# DID resolution endpoint (if needed)
-# web.http.did.port=10016
-# web.http.did.path=/
+WEB_HTTP_PORT=10010
+WEB_HTTP_PATH=/api
+WEB_HTTP_STS_PORT=10011
+WEB_HTTP_STS_PATH=/api/sts
+WEB_HTTP_ISSUANCE_PORT=10012
+WEB_HTTP_ISSUANCE_PATH=/api/issuance
+WEB_HTTP_ISSUERADMIN_PORT=10013
+WEB_HTTP_ISSUERADMIN_PATH=/api/admin
+WEB_HTTP_VERSION_PORT=10014
+WEB_HTTP_VERSION_PATH=/.well-known/api
+WEB_HTTP_IDENTITY_PORT=10015
+WEB_HTTP_IDENTITY_PATH=/api/identity
+WEB_HTTP_IDENTITY_AUTH_KEY=password
+WEB_HTTP_DID_PORT=10016
+WEB_HTTP_DID_PATH=/
 
 # ============================================================
 # DATABASE CONFIGURATION
@@ -349,7 +343,6 @@ EDC_SQL_SCHEMA_AUTOCREATE=true
 # ============================================================
 # VAULT CONFIGURATION
 # ============================================================
-# HashiCorp Vault connection
 EDC_VAULT_HASHICORP_URL=http://issuer-vault:8200
 EDC_VAULT_HASHICORP_TOKEN=root
 
@@ -360,29 +353,19 @@ EDC_VAULT_HASHICORP_TOKEN=root
 # Format: base64(username).base64(password)
 # Default: super-user.super-secret-key
 # CHANGE THIS IN PRODUCTION
-edc.ih.api.superuser.key=c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo=
+EDC_IH_API_SUPERUSER_KEY=c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo=
 
 # Access token validation
 EDC_IAM_ACCESSTOKEN_JTI_VALIDATION=true
 
-# ============================================================
 # DID & IDENTITY CONFIGURATION
-# ============================================================
-# Whether to use HTTPS for DID web resolution
-# false = http://host:port (local development)
-# true = https://domain (production)
-edc.iam.did.web.use.https=false
-
-# Issuer DID (derived from deployment environment)
-# Local: did:web:host.docker.internal%3A9876
-# Production: did:web:issuer.yourdomain.com
-# edc.ih.iam.id=did:web:host.docker.internal%3A9876
+EDC_IAM_DID_WEB_USE_HTTPS=false
 
 # ============================================================
 # CREDENTIAL CONFIGURATION
 # ============================================================
 # Signing key alias for status list credentials
-edc.issuer.statuslist.signing.key.alias=signing-key-alias
+EDC_ISSUER_STATUSLIST_SIGNING_KEY_ALIAS=statuslist-signing-key
 
 # ============================================================
 # DEBUGGING (REMOVE IN PRODUCTION)
