@@ -1,10 +1,30 @@
 version: "3"
 
 vars:
+  # MVD Configuration
   MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-mvds"
   MVD_REF: 69e4b0b # Can be a branch name (e.g., 'main', 'release/0.14.0') or commit ID (e.g., '69e4b0b')
   MVD_REPO_URL: https://github.com/eclipse-edc/MinimumViableDataspace
   DOCKER_IMAGES: "controlplane dataplane identity-hub"
+
+  # Docker Configuration
+  DOCKER_NETWORK: "mvd-network"
+  DOCKER_COMPOSE_FILE: "{{.ROOT_DIR}}/docker-compose.issuer.yaml"
+  ISSUER_COMPOSE_PROJECT_NAME: "mvds-issuer"
+
+  # Python Configuration
+  PYTHON_CMD: "python3"
+
+  # Gradle Configuration
+  GRADLE_PERSISTENCE_FLAG: "-Ppersistence=true"
+
+  # Script Paths
+  SCRIPTS_DIR: "{{.ROOT_DIR}}/scripts"
+  ISSUER_SCRIPTS_DIR: "{{.SCRIPTS_DIR}}/issuer"
+  MVD_SETUP_SCRIPT: "{{.SCRIPTS_DIR}}/setup-mvd-source.sh"
+
+dotenv:
+  - .env
 
 tasks:
   default:
@@ -15,7 +35,7 @@ tasks:
   setup-source:
     desc: Clone or update MVD source repository to specified branch or commit
     cmds:
-      - ./scripts/setup-mvd-source.sh "{{.MVD_SOURCE_DIR}}" "{{.MVD_REF}}" "{{.MVD_REPO_URL}}"
+      - ./{{.MVD_SETUP_SCRIPT}} "{{.MVD_SOURCE_DIR}}" "{{.MVD_REF}}" "{{.MVD_REPO_URL}}"
 
   build:
     desc: Build Docker images for all components (controlplane, dataplane, identity-hub)
@@ -23,118 +43,66 @@ tasks:
     dir: "{{.MVD_SOURCE_DIR}}"
     cmds:
       - ./gradlew clean build
-      - ./gradlew -Ppersistence=true dockerize
+      - ./gradlew {{.GRADLE_PERSISTENCE_FLAG}} dockerize
     sources:
       - "{{.MVD_SOURCE_DIR}}/**/*.java"
       - "{{.MVD_SOURCE_DIR}}/build.gradle.kts"
 
-  generate-config:
-    desc: Generate configuration files from templates using .env
-    cmds:
-      - ./scripts/generate-config.sh
+  # ============================================================
+  # ISSUER SERVICE TASKS
+  # ============================================================
 
-  validate-env:
-    desc: Validate .env configuration
+  issuer:generate-keys:
+    desc: Generate Issuer key pair (Ed25519)
     cmds:
-      - |
-        if [ ! -f .env ]; then
-          echo "❌ Error: .env file not found"
-          echo "   Please create .env from .env.example first"
-          exit 1
-        fi
-        source scripts/load-env.sh
-        echo "✓ Environment configuration is valid"
+      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/generate_keys.py"
 
-  up:
-    desc: Start all MVD services (postgres, vault, identityhub, controlplane, dataplane)
+  issuer:generate-did:
+    desc: Generate DID document dynamically
+    deps: [issuer:generate-keys]
     cmds:
-      - task: generate-config
-      - docker network create mvd-network || true
-      - docker compose up -d --build --wait
-      - echo "Services started! Check status with 'task status'"
+      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/generate_did.py"
 
-  down:
-    desc: Stop all MVD services
+  issuer:up:
+    desc: Start Issuer services
     cmds:
-      - docker compose down
+      - task: issuer:generate-did
+      - cmd: docker network create {{.DOCKER_NETWORK}}
+        ignore_error: true
+      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} up -d --wait
 
-  clean:
-    desc: Stop services and remove all data (including volumes)
-    prompt: This will delete all data. Are you sure?
+  issuer:down:
+    desc: Stop Issuer services
     cmds:
-      - docker compose down -v
-      - rm -fr {{.MVD_SOURCE_DIR}}
+      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} down
 
-  status:
-    desc: Show status of all services
+  issuer:status:
+    desc: Show status of Issuer services
     cmds:
-      - docker compose ps
+      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} ps
 
-  logs:
-    desc: Show logs for all services
+  issuer:logs:
+    desc: Show logs for Issuer services
     cmds:
-      - docker compose logs -f
+      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} logs -f {{.SERVICE | default ""}}
 
-  logs-service:
-    desc: Show logs for a specific service (usage - task logs-service SERVICE=identityhub)
+  issuer:seed:
+    desc: Seed Issuer with attestations and credentials
     cmds:
-      - docker compose logs -f {{.SERVICE}}
+      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/seed_issuer.py"
 
-  seed:
-    desc: Seed the dataspace with participant contexts and test data
-    deps: [generate-config]
+  issuer:verify:
+    desc: Verify Issuer deployment
     cmds:
-      - ./scripts/seed.sh
+      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/verify_deployment.py"
 
-  restart:
-    desc: Restart all services
+  issuer:deploy:
+    desc: Complete Issuer deployment
     cmds:
-      - task: down
-      - task: up
+      - "{{.ISSUER_SCRIPTS_DIR}}/deploy.sh"
 
-  rebuild:
-    desc: Rebuild images and restart services
-    deps: [setup-source]
+  issuer:clean:
+    desc: Stop services and remove data
+    prompt: This will delete all Issuer data. Continue?
     cmds:
-      - task: build
-      - task: down
-      - task: up
-
-  shell:
-    desc: Open a shell in a specific container (usage - task shell SERVICE=identityhub)
-    cmds:
-      - docker compose exec {{.SERVICE}} sh
-
-  db:
-    desc: Connect to PostgreSQL database
-    cmds:
-      - docker compose exec postgres psql -U mvd_user -d mvd
-
-  vault:
-    desc: Check Vault status
-    cmds:
-      - docker compose exec vault vault status
-
-  backup:
-    desc: Backup PostgreSQL database
-    cmds:
-      - mkdir -p ./backups
-      - docker compose exec -T postgres pg_dump -U mvd_user mvd > ./backups/mvd-backup-$(date +%Y%m%d-%H%M%S).sql
-      - echo "Backup created in ./backups/"
-
-  restore:
-    desc: Restore PostgreSQL database from backup (usage - task restore BACKUP=./backups/mvd-backup-YYYYMMDD-HHMMSS.sql)
-    cmds:
-      - echo "Restoring database from {{.BACKUP}}..."
-      - docker compose exec -T postgres psql -U mvd_user -d mvd < {{.BACKUP}}
-
-  test:
-    desc: Quick test - create a test asset and policy on the connector
-    cmds:
-      - ./scripts/create-test-asset.sh
-      - echo "Test asset created. Check with Management API"
-
-  setup:
-    desc: Clone or update the MVD source repository
-    cmds:
-      - task: setup-source
+      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} down -v

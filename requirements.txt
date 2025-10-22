@@ -1,0 +1,7 @@
+# Python dependencies for eifede-mvds Issuer Service scripts
+
+# Cryptography library for Ed25519 key generation and manipulation
+# Used by:
+# - scripts/issuer/generate_keys.py (key pair generation)
+# - scripts/issuer/generate_did.py (reading public keys from PEM files)
+cryptography>=41.0.0
