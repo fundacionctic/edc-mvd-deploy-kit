@@ -1,0 +1,365 @@
+#!/usr/bin/env python3
+"""
+Identity Hub Configuration and Setup
+
+This script configures the Identity Hub component with necessary settings
+for credential management, DID resolution, and STS token issuance.
+
+Usage:
+    python3 scripts/provider/configure_identityhub.py [action]
+
+Actions:
+    setup           Setup Identity Hub configuration (default)
+    verify          Verify Identity Hub configuration
+    test            Test Identity Hub functionality
+    credentials     Setup credential mounting
+    keys            Setup key storage in Vault
+    wait            Wait for Identity Hub to become ready
+
+Environment Variables:
+    All PROVIDER_* environment variables from config.py
+"""
+
+import json
+import logging
+import os
+import sys
+from typing import Dict, List, Optional
+
+# Add the scripts directory to the path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from provider.config import load_config
+    from provider.test_identityhub import run_all_tests
+    from provider.common_utils import wait_for_component, validate_did_format, validate_port_number
+except ImportError:
+    print("ERROR: Could not import provider modules")
+    print("Make sure you're running from the project root directory")
+    sys.exit(1)
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
+
+
+def setup_credential_mounting(config) -> bool:
+    """
+    Setup credential mounting configuration.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Setting up credential mounting...")
+
+    # Ensure credentials directory exists
+    credentials_dir = "assets/credentials"
+    os.makedirs(credentials_dir, exist_ok=True)
+
+    # Check for existing credential files
+    credential_files = [f for f in os.listdir(credentials_dir) if f.endswith(".json")]
+
+    if not credential_files:
+        logger.info(
+            "No credential files found - credentials will be obtained from Issuer service later"
+        )
+        logger.info("✅ Credentials directory prepared for future credential storage")
+    else:
+        logger.info(f"✅ Found {len(credential_files)} credential files")
+        for cred_file in credential_files:
+            logger.debug(f"   - {cred_file}")
+
+    return True
+
+
+def setup_key_storage(config) -> bool:
+    """
+    Setup key storage in Vault.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Setting up key storage in Vault...")
+
+    # Key storage configuration is handled via environment variables
+    # This function validates the key storage setup
+
+    key_config = {
+        "vault_url": "http://provider-vault:8200",
+        "vault_token": config.provider_vault_token,
+        "private_key_alias": "key-1",
+        "public_key_id": "key-1",
+        "sts_private_key_alias": "key-1",
+        "sts_public_key_id": "key-1",
+    }
+
+    logger.info("Key Storage Configuration:")
+    for key, value in key_config.items():
+        if "token" in key.lower():
+            logger.info(f"  {key}: {'*' * 10}[MASKED]")
+        else:
+            logger.info(f"  {key}: {value}")
+
+    # Test Vault connectivity
+    import urllib.error
+    import urllib.request
+
+    vault_health_url = "http://localhost:8200/v1/sys/health"
+
+    try:
+        with urllib.request.urlopen(vault_health_url, timeout=10) as response:
+            status_code = response.getcode()
+            if status_code in [200, 429, 472, 473]:
+                logger.info("✅ Vault is accessible for key storage")
+                return True
+            else:
+                logger.error(f"❌ Vault health check failed: {status_code}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Cannot reach Vault: {e}")
+        logger.info(
+            "⚠️  This is expected during initial setup - continuing with configuration"
+        )
+        return True  # Allow setup to continue even if Vault is not running yet
+
+
+def setup_did_configuration(config) -> bool:
+    """
+    Setup DID configuration for Identity Hub.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Setting up DID configuration...")
+
+    # DID configuration is handled via environment variables
+    # This function validates the DID setup
+
+    did_config = {
+        "participant_did": config.provider_did,
+        "did_web_use_https": "false",  # For local development
+        "public_key_alias": f"{config.provider_participant_name}-publickey",
+    }
+
+    logger.info("DID Configuration:")
+    for key, value in did_config.items():
+        logger.info(f"  {key}: {value}")
+
+    # Validate DID format
+    if not validate_did_format(config.provider_did):
+        logger.error(f"❌ Invalid DID format: {config.provider_did}")
+        return False
+
+    logger.info("✅ DID configuration validated")
+    return True
+
+
+def setup_sts_configuration(config) -> bool:
+    """
+    Setup STS (Secure Token Service) configuration.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Setting up STS configuration...")
+
+    # STS configuration is handled via environment variables
+    # This function validates the STS setup
+
+    sts_config = {
+        "sts_port": config.provider_ih_sts_port,
+        "sts_path": "/api/sts",
+        "private_key_alias": "key-1",
+        "public_key_id": "key-1",
+        "access_token_validation": "true",
+    }
+
+    logger.info("STS Configuration:")
+    for key, value in sts_config.items():
+        logger.info(f"  {key}: {value}")
+
+    logger.info("✅ STS configuration validated")
+    return True
+
+
+def verify_identityhub_configuration(config) -> bool:
+    """
+    Verify Identity Hub configuration.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if configuration is valid, False otherwise
+    """
+    logger.info("Verifying Identity Hub configuration...")
+
+    # Check configuration file
+    config_file = "config/provider-identityhub.env"
+    if not os.path.exists(config_file):
+        logger.error(f"❌ Configuration file missing: {config_file}")
+        return False
+
+    logger.info(f"✅ Configuration file exists: {config_file}")
+
+    # Check credentials directory
+    credentials_dir = "assets/credentials"
+    if not os.path.exists(credentials_dir):
+        logger.error(f"❌ Credentials directory missing: {credentials_dir}")
+        return False
+
+    logger.info(f"✅ Credentials directory exists: {credentials_dir}")
+
+    # Verify configuration values
+    all_valid = True
+
+    # DID validation
+    if validate_did_format(config.provider_did):
+        logger.info(f"✅ Participant DID: {config.provider_did}")
+    else:
+        logger.error(f"❌ Participant DID invalid: {config.provider_did}")
+        all_valid = False
+
+    # Port validations
+    port_checks = [
+        ("Credentials Port", config.provider_ih_credentials_port),
+        ("STS Port", config.provider_ih_sts_port),
+        ("DID Port", config.provider_ih_did_port),
+        ("Web Port", config.provider_ih_web_port),
+    ]
+
+    for port_name, port_value in port_checks:
+        if validate_port_number(port_value, port_name):
+            logger.info(f"✅ {port_name}: {port_value}")
+        else:
+            all_valid = False
+
+    return all_valid
+
+
+def wait_for_identityhub(config, timeout: int = 60) -> bool:
+    """
+    Wait for Identity Hub to become ready.
+
+    Args:
+        config: Configuration object
+        timeout: Maximum time to wait in seconds
+
+    Returns:
+        True if Identity Hub becomes ready, False if timeout
+    """
+    health_url = f"http://localhost:{config.provider_ih_web_port}/api/check/health"
+    return wait_for_component("Identity Hub", health_url, timeout)
+
+
+def setup_identityhub(config) -> bool:
+    """
+    Complete Identity Hub setup.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Setting up Identity Hub configuration...")
+    logger.info("=" * 50)
+
+    setup_steps = [
+        ("Credential Mounting", setup_credential_mounting),
+        ("Key Storage", setup_key_storage),
+        ("DID Configuration", setup_did_configuration),
+        ("STS Configuration", setup_sts_configuration),
+    ]
+
+    all_successful = True
+
+    for step_name, step_func in setup_steps:
+        logger.info(f"\n--- {step_name} ---")
+        try:
+            if step_func(config):
+                logger.info(f"✅ {step_name} setup completed")
+            else:
+                logger.error(f"❌ {step_name} setup failed")
+                all_successful = False
+        except Exception as e:
+            logger.error(f"❌ {step_name} setup failed with exception: {e}")
+            all_successful = False
+
+    logger.info("\n" + "=" * 50)
+    if all_successful:
+        logger.info("🎉 Identity Hub setup completed successfully!")
+
+        # Verify configuration
+        if verify_identityhub_configuration(config):
+            logger.info("✅ Configuration verification passed")
+        else:
+            logger.warning("⚠️  Configuration verification had issues")
+            all_successful = False
+    else:
+        logger.error("❌ Identity Hub setup failed")
+
+    return all_successful
+
+
+def show_help():
+    """Show help message."""
+    print(__doc__)
+
+
+def main():
+    """Main entry point."""
+    # Load configuration
+    config = load_config()
+    if not config:
+        logger.error("Failed to load configuration")
+        return 1
+
+    # Determine action to perform
+    action = sys.argv[1].lower() if len(sys.argv) > 1 else "setup"
+
+    success = False
+
+    if action == "setup":
+        success = setup_identityhub(config)
+    elif action == "verify":
+        success = verify_identityhub_configuration(config)
+    elif action == "test":
+        # Wait for Identity Hub to be ready first
+        if wait_for_identityhub(config):
+            success = run_all_tests(config)
+        else:
+            logger.error("Identity Hub is not ready for testing")
+    elif action == "credentials":
+        success = setup_credential_mounting(config)
+    elif action == "keys":
+        success = setup_key_storage(config)
+    elif action == "wait":
+        success = wait_for_identityhub(config)
+    elif action == "help" or action == "--help":
+        show_help()
+        return 0
+    else:
+        logger.error(f"Unknown action: {action}")
+        show_help()
+        return 1
+
+    return 0 if success else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

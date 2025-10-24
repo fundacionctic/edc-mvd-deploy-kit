@@ -1,0 +1,123 @@
+-- ============================================================
+-- ISSUER SERVICE DATABASE INITIALIZATION
+-- ============================================================
+-- This file initializes the Issuer Service PostgreSQL database with:
+-- 1. Database and user creation
+-- 2. Attestation tables (membership_attestations, data_processor_attestations)
+-- 3. Seed data for participants (Consumer, Provider)
+--
+-- IMPORTANT: This file is generated from init-issuer-db.sql.template
+-- DO NOT EDIT init-issuer-db.sql directly - changes will be overwritten
+-- ============================================================
+
+-- ============================================================
+-- DATABASE SETUP
+-- ============================================================
+
+-- Create issuer user with superuser privileges
+CREATE USER issuer WITH ENCRYPTED PASSWORD 'issuer' SUPERUSER;
+
+-- Create issuer database
+CREATE DATABASE issuer;
+
+-- Connect to issuer database as issuer user
+\c issuer issuer
+
+-- ============================================================
+-- ATTESTATION TABLES
+-- ============================================================
+
+-- Membership Attestations Table
+-- Stores membership information for participants
+CREATE TABLE IF NOT EXISTS membership_attestations (
+    id VARCHAR DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    membership_type INTEGER DEFAULT 0,
+    holder_id VARCHAR NOT NULL UNIQUE,
+    membership_start_date TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Data Processor Attestations Table
+-- Stores data processing capability attestations
+CREATE TABLE IF NOT EXISTS data_processor_attestations (
+    id VARCHAR DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    holder_id VARCHAR NOT NULL UNIQUE,
+    contract_version VARCHAR NOT NULL,
+    processing_level VARCHAR NOT NULL,
+    attestation_date TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- ============================================================
+-- SEED DATA: PARTICIPANT ATTESTATIONS
+-- ============================================================
+--
+-- IMPORTANT NOTES:
+-- 1. holder_id MUST match the participant DID exactly
+-- 2. Use host.docker.internal for Docker Compose deployments
+-- 3. URL encoding: ':' becomes '%3A'
+-- 4. Format: did:web:host.docker.internal%3A<port>:<participant-name>
+--
+-- Participant Types:
+--   membership_type: 1 = Consumer, 2 = Provider
+--   processing_level: 'processing' = standard, 'sensitive' = high security
+--
+-- DID Format Examples:
+--   Docker Compose: did:web:host.docker.internal%3A7083:consumer
+--   Kubernetes:     did:web:consumer-identityhub%3A7083:consumer
+--   Production:     did:web:consumer.yourdomain.com:consumer
+
+-- ============================================================
+-- CONSUMER PARTICIPANT
+-- ============================================================
+-- DID: ${CONSUMER_DID}
+-- Port: ${CONSUMER_DID_SERVER_PORT} (IdentityHub DID endpoint)
+-- Membership Type: 1 (Consumer)
+
+INSERT INTO membership_attestations (membership_type, holder_id, membership_start_date)
+VALUES (
+    1,
+    '${CONSUMER_DID}',
+    '2023-01-01T00:00:00Z'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO data_processor_attestations (holder_id, contract_version, processing_level, attestation_date)
+VALUES (
+    '${CONSUMER_DID}',
+    '1.0.0',
+    'processing',
+    '2023-01-01T00:00:00Z'
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- PROVIDER PARTICIPANT
+-- ============================================================
+-- DID: ${PROVIDER_DID}
+-- Port: ${PROVIDER_IH_DID_PORT} (IdentityHub DID endpoint)
+-- Membership Type: 2 (Provider)
+
+INSERT INTO membership_attestations (membership_type, holder_id, membership_start_date)
+VALUES (
+    2,
+    '${PROVIDER_DID}',
+    '2023-01-01T00:00:00Z'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO data_processor_attestations (holder_id, contract_version, processing_level, attestation_date)
+VALUES (
+    '${PROVIDER_DID}',
+    '1.0.0',
+    'processing',
+    '2023-01-01T00:00:00Z'
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- NOTES
+-- ============================================================
+-- 1. ON CONFLICT DO NOTHING allows idempotent execution
+-- 2. Add more participants by copying the INSERT blocks above
+-- 3. Adjust membership_type and processing_level as needed
+-- 4. membership_start_date can be customized per participant
+-- ============================================================

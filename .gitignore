@@ -50,12 +50,31 @@ assets/issuer/did.json
 assets/issuer/*.pem
 config/issuer-nginx.conf
 deployment/issuer/did.docker.json
+deployment/issuer/init-issuer-db.sql
+
+# Generated provider files
+deployment/provider/did.docker.json
+deployment/provider/participants.json
+
+# Generated DID registry
+assets/did-registry.json
+
+# Generated credentials and DIDs (never commit!)
+assets/credentials/*.json
+assets/credentials/*.did
+assets/credentials/*.vc
+assets/credentials/*.vp
 
 # Generated keys (never commit!)
 assets/keys/*.pem
+assets/keys/*.key
+assets/keys/*.crt
+assets/keys/*.p12
+assets/keys/*.jks
 
 # Generated participant files
-assets/participants/participants.json
+assets/participants/*.json
+assets/participants/*.did
 
 ## Python
 #########

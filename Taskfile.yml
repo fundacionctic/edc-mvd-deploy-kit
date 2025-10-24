@@ -11,6 +11,8 @@ vars:
   DOCKER_NETWORK: "mvd-network"
   DOCKER_COMPOSE_FILE: "{{.ROOT_DIR}}/docker-compose.issuer.yaml"
   ISSUER_COMPOSE_PROJECT_NAME: "mvds-issuer"
+  PROVIDER_COMPOSE_FILE: "{{.ROOT_DIR}}/docker-compose.provider.yaml"
+  PROVIDER_COMPOSE_PROJECT_NAME: "mvds-provider"
 
   # Python Configuration
   PYTHON_CMD: "python3"
@@ -21,6 +23,7 @@ vars:
   # Script Paths
   SCRIPTS_DIR: "{{.ROOT_DIR}}/scripts"
   ISSUER_SCRIPTS_DIR: "{{.SCRIPTS_DIR}}/issuer"
+  PROVIDER_SCRIPTS_DIR: "{{.SCRIPTS_DIR}}/provider"
   MVD_SETUP_SCRIPT: "{{.SCRIPTS_DIR}}/setup-mvd-source.sh"
 
 dotenv:
@@ -52,21 +55,20 @@ tasks:
   # ISSUER SERVICE TASKS
   # ============================================================
 
-  issuer:generate-keys:
-    desc: Generate Issuer key pair (Ed25519)
+  issuer:generate-config:
+    desc: Generate configuration files for the issuer
     cmds:
-      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/generate_keys.py"
+      - envsubst <{{.ROOT_DIR}}/config/issuer-service.env.template >{{.ROOT_DIR}}/config/issuer-service.env
 
-  issuer:generate-did:
-    desc: Generate DID document dynamically
-    deps: [issuer:generate-keys]
+  issuer:generate-sql:
+    desc: Generate SQL seed file dynamically
     cmds:
-      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/generate_did.py"
+      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/generate_init_sql.py"
 
   issuer:up:
     desc: Start Issuer services
     cmds:
-      - task: issuer:generate-did
+      - task: issuer:generate-sql
       - cmd: docker network create {{.DOCKER_NETWORK}}
         ignore_error: true
       - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} up -d --wait
@@ -81,28 +83,86 @@ tasks:
     cmds:
       - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} ps
 
-  issuer:logs:
-    desc: Show logs for Issuer services
-    cmds:
-      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} logs -f {{.SERVICE | default ""}}
-
   issuer:seed:
     desc: Seed Issuer with attestations and credentials
     cmds:
       - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/seed_issuer.py"
 
-  issuer:verify:
-    desc: Verify Issuer deployment
-    cmds:
-      - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/verify_deployment.py"
-
   issuer:deploy:
     desc: Complete Issuer deployment
     cmds:
-      - "{{.ISSUER_SCRIPTS_DIR}}/deploy.sh"
+      - task: issuer:generate-config
+      - task: issuer:up
+      - task: issuer:seed
 
   issuer:clean:
     desc: Stop services and remove data
     prompt: This will delete all Issuer data. Continue?
     cmds:
       - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} down -v
+
+  # ============================================================
+  # PROVIDER PARTICIPANT TASKS
+  # ============================================================
+
+  provider:generate-config:
+    desc: Generate configuration files for all components
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/generate_config.py"
+
+  provider:validate-config:
+    desc: Validate generated configuration files
+    deps: [provider:generate-config]
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/validate_config.py"
+
+  provider:configure:
+    desc: Configure all provider components
+    deps: [provider:validate-config]
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_controlplane.py setup"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_dataplane.py setup"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_identityhub.py setup"
+
+  provider:up:
+    desc: Start Provider services
+    deps: [build, provider:configure]
+    cmds:
+      - cmd: docker network create {{.DOCKER_NETWORK}}
+        ignore_error: true
+      - docker compose -p {{.PROVIDER_COMPOSE_PROJECT_NAME}} -f {{.PROVIDER_COMPOSE_FILE}} up -d --wait
+
+  provider:down:
+    desc: Stop Provider services
+    cmds:
+      - docker compose -p {{.PROVIDER_COMPOSE_PROJECT_NAME}} -f {{.PROVIDER_COMPOSE_FILE}} down
+
+  provider:restart:
+    desc: Restart Provider services
+    cmds:
+      - task: provider:down
+      - task: provider:up
+
+  provider:seed:
+    desc: Seed provider with assets, policies, and contracts
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/register_provider_participant.py"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/seed_participant.py all"
+
+  provider:request-credentials:
+    desc: Request credentials from Issuer service
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/request_credentials.py"
+
+  provider:deploy:
+    desc: Complete provider participant deployment
+    cmds:
+      - task: provider:up
+      - task: provider:seed
+      - task: provider:request-credentials
+
+  provider:clean:
+    desc: Stop services and remove data
+    prompt: This will delete all Provider data. Continue?
+    cmds:
+      - docker compose -p {{.PROVIDER_COMPOSE_PROJECT_NAME}} -f {{.PROVIDER_COMPOSE_FILE}} down -v
