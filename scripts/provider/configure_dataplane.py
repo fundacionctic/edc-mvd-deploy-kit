@@ -6,32 +6,26 @@ This script configures the Data Plane component with necessary settings
 for Control Plane communication, token verification, and data transfer.
 
 Usage:
-    python3 scripts/provider/configure_dataplane.py [action]
-
-Actions:
-    setup           Setup Data Plane configuration (default)
-    verify          Verify Data Plane configuration
-    test            Test Data Plane functionality
-    register        Register Data Plane with Control Plane
-    wait            Wait for Data Plane to become ready
+    python3 scripts/provider/configure_dataplane.py
 
 Environment Variables:
     All PROVIDER_* environment variables from config.py
 """
 
-import json
 import logging
 import os
 import sys
-from typing import Dict, List, Optional
 
 # Add the scripts directory to the path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
+    from provider.common_utils import (
+        check_component_health,
+        validate_did_format,
+        validate_port_number,
+    )
     from provider.config import load_config
-    from provider.test_dataplane import run_all_tests
-    from provider.common_utils import wait_for_component, check_component_health, validate_did_format, validate_port_number
 except ImportError:
     print("ERROR: Could not import provider modules")
     print("Make sure you're running from the project root directory")
@@ -188,96 +182,6 @@ def verify_dataplane_configuration(config) -> bool:
     return all_valid
 
 
-def wait_for_dataplane(config, timeout: int = 60) -> bool:
-    """
-    Wait for Data Plane to become ready.
-
-    Args:
-        config: Configuration object
-        timeout: Maximum time to wait in seconds
-
-    Returns:
-        True if Data Plane becomes ready, False if timeout
-    """
-    health_url = f"http://localhost:{config.provider_dp_web_port}/api/check/health"
-    return wait_for_component("Data Plane", health_url, timeout)
-
-
-def register_with_controlplane(config) -> bool:
-    """
-    Register Data Plane with Control Plane.
-
-    Args:
-        config: Configuration object
-
-    Returns:
-        True if registration successful, False otherwise
-    """
-    logger.info("Registering Data Plane with Control Plane...")
-
-    # Data Plane registration is automatic via the DPF_SELECTOR_URL
-    # This function verifies that registration occurred
-
-    import urllib.error
-    import urllib.request
-
-    # Check Control Plane data planes endpoint
-    cp_url = (
-        f"http://localhost:{config.provider_cp_control_port}/api/control/v1/dataplanes"
-    )
-    headers = config.get_management_headers()
-
-    try:
-        request = urllib.request.Request(cp_url)
-        for key, value in headers.items():
-            request.add_header(key, value)
-
-        with urllib.request.urlopen(request, timeout=10) as response:
-            if response.getcode() == 200:
-                response_data = response.read().decode("utf-8")
-
-                try:
-                    dataplanes = json.loads(response_data)
-
-                    if isinstance(dataplanes, list):
-                        # Look for our data plane
-                        our_dataplane = None
-                        for dp in dataplanes:
-                            if (
-                                isinstance(dp, dict)
-                                and dp.get("id")
-                                == f"{config.provider_participant_name}-dataplane"
-                            ):
-                                our_dataplane = dp
-                                break
-
-                        if our_dataplane:
-                            logger.info(
-                                f"✅ Data Plane registered successfully: {our_dataplane.get('id')}"
-                            )
-                            return True
-                        else:
-                            logger.warning(
-                                "⚠️  Data Plane not found in Control Plane registry"
-                            )
-                            logger.info("Registration may still be in progress...")
-                            return False
-                    else:
-                        logger.error("❌ Unexpected response format from Control Plane")
-                        return False
-
-                except json.JSONDecodeError:
-                    logger.error("❌ Failed to parse Control Plane response")
-                    return False
-            else:
-                logger.error(f"❌ Control Plane returned status: {response.getcode()}")
-                return False
-
-    except Exception as e:
-        logger.error(f"❌ Failed to check Data Plane registration: {e}")
-        return False
-
-
 def setup_dataplane(config) -> bool:
     """
     Complete Data Plane setup.
@@ -327,11 +231,6 @@ def setup_dataplane(config) -> bool:
     return all_successful
 
 
-def show_help():
-    """Show help message."""
-    print(__doc__)
-
-
 def main():
     """Main entry point."""
     # Load configuration
@@ -340,33 +239,8 @@ def main():
         logger.error("Failed to load configuration")
         return 1
 
-    # Determine action to perform
-    action = sys.argv[1].lower() if len(sys.argv) > 1 else "setup"
-
-    success = False
-
-    if action == "setup":
-        success = setup_dataplane(config)
-    elif action == "verify":
-        success = verify_dataplane_configuration(config)
-    elif action == "test":
-        # Wait for Data Plane to be ready first
-        if wait_for_dataplane(config):
-            success = run_all_tests(config)
-        else:
-            logger.error("Data Plane is not ready for testing")
-    elif action == "register":
-        success = register_with_controlplane(config)
-    elif action == "wait":
-        success = wait_for_dataplane(config)
-    elif action == "help" or action == "--help":
-        show_help()
-        return 0
-    else:
-        logger.error(f"Unknown action: {action}")
-        show_help()
-        return 1
-
+    # Run setup
+    success = setup_dataplane(config)
     return 0 if success else 1
 
 

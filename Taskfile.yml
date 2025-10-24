@@ -120,9 +120,9 @@ tasks:
     desc: Configure all provider components
     deps: [provider:validate-config]
     cmds:
-      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_controlplane.py setup"
-      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_dataplane.py setup"
-      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_identityhub.py setup"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_controlplane.py"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_dataplane.py"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/configure_identityhub.py"
 
   provider:up:
     desc: Start Provider services

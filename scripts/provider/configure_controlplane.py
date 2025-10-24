@@ -6,13 +6,7 @@ This script configures the Control Plane component with necessary settings
 for participant registry, DID resolution, and STS integration.
 
 Usage:
-    python3 scripts/provider/configure_controlplane.py [action]
-
-Actions:
-    setup           Setup Control Plane configuration (default)
-    verify          Verify Control Plane configuration
-    test            Test Control Plane functionality
-    reset           Reset Control Plane configuration
+    python3 scripts/provider/configure_controlplane.py
 
 Environment Variables:
     All PROVIDER_* environment variables from config.py
@@ -22,15 +16,13 @@ import json
 import logging
 import os
 import sys
-from typing import Dict, List, Optional
 
 # Add the scripts directory to the path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
+    from provider.common_utils import validate_did_format, validate_port_number
     from provider.config import load_config
-    from provider.test_controlplane import run_all_tests
-    from provider.common_utils import wait_for_component, validate_did_format, validate_port_number
 except ImportError:
     print("ERROR: Could not import provider modules")
     print("Make sure you're running from the project root directory")
@@ -213,54 +205,6 @@ def verify_configuration(config) -> bool:
     return all_valid
 
 
-def wait_for_controlplane(config, timeout: int = 60) -> bool:
-    """
-    Wait for Control Plane to become ready.
-
-    Args:
-        config: Configuration object
-        timeout: Maximum time to wait in seconds
-
-    Returns:
-        True if Control Plane becomes ready, False if timeout
-    """
-    health_url = f"http://localhost:{config.provider_cp_web_port}/api/check/health"
-    return wait_for_component("Control Plane", health_url, timeout)
-
-
-def reset_configuration(config) -> bool:
-    """
-    Reset Control Plane configuration.
-
-    Args:
-        config: Configuration object
-
-    Returns:
-        True if successful, False otherwise
-    """
-    logger.info("Resetting Control Plane configuration...")
-
-    # Files to remove
-    files_to_remove = [
-        "assets/participants/participants.json",
-        "assets/did-registry.json",
-    ]
-
-    for file_path in files_to_remove:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-                logger.info(f"✅ Removed: {file_path}")
-            except Exception as e:
-                logger.error(f"❌ Failed to remove {file_path}: {e}")
-                return False
-        else:
-            logger.info(f"File not found (already removed): {file_path}")
-
-    logger.info("✅ Control Plane configuration reset")
-    return True
-
-
 def setup_controlplane(config) -> bool:
     """
     Complete Control Plane setup.
@@ -310,11 +254,6 @@ def setup_controlplane(config) -> bool:
     return all_successful
 
 
-def show_help():
-    """Show help message."""
-    print(__doc__)
-
-
 def main():
     """Main entry point."""
     # Load configuration
@@ -323,33 +262,8 @@ def main():
         logger.error("Failed to load configuration")
         return 1
 
-    # Determine action to perform
-    action = sys.argv[1].lower() if len(sys.argv) > 1 else "setup"
-
-    success = False
-
-    if action == "setup":
-        success = setup_controlplane(config)
-    elif action == "verify":
-        success = verify_configuration(config)
-    elif action == "test":
-        # Wait for Control Plane to be ready first
-        if wait_for_controlplane(config):
-            success = run_all_tests(config)
-        else:
-            logger.error("Control Plane is not ready for testing")
-    elif action == "reset":
-        success = reset_configuration(config)
-    elif action == "wait":
-        success = wait_for_controlplane(config)
-    elif action == "help" or action == "--help":
-        show_help()
-        return 0
-    else:
-        logger.error(f"Unknown action: {action}")
-        show_help()
-        return 1
-
+    # Run setup
+    success = setup_controlplane(config)
     return 0 if success else 1
 
 

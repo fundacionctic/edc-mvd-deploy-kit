@@ -6,33 +6,22 @@ This script configures the Identity Hub component with necessary settings
 for credential management, DID resolution, and STS token issuance.
 
 Usage:
-    python3 scripts/provider/configure_identityhub.py [action]
-
-Actions:
-    setup           Setup Identity Hub configuration (default)
-    verify          Verify Identity Hub configuration
-    test            Test Identity Hub functionality
-    credentials     Setup credential mounting
-    keys            Setup key storage in Vault
-    wait            Wait for Identity Hub to become ready
+    python3 scripts/provider/configure_identityhub.py
 
 Environment Variables:
     All PROVIDER_* environment variables from config.py
 """
 
-import json
 import logging
 import os
 import sys
-from typing import Dict, List, Optional
 
 # Add the scripts directory to the path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
+    from provider.common_utils import validate_did_format, validate_port_number
     from provider.config import load_config
-    from provider.test_identityhub import run_all_tests
-    from provider.common_utils import wait_for_component, validate_did_format, validate_port_number
 except ImportError:
     print("ERROR: Could not import provider modules")
     print("Make sure you're running from the project root directory")
@@ -251,21 +240,6 @@ def verify_identityhub_configuration(config) -> bool:
     return all_valid
 
 
-def wait_for_identityhub(config, timeout: int = 60) -> bool:
-    """
-    Wait for Identity Hub to become ready.
-
-    Args:
-        config: Configuration object
-        timeout: Maximum time to wait in seconds
-
-    Returns:
-        True if Identity Hub becomes ready, False if timeout
-    """
-    health_url = f"http://localhost:{config.provider_ih_web_port}/api/check/health"
-    return wait_for_component("Identity Hub", health_url, timeout)
-
-
 def setup_identityhub(config) -> bool:
     """
     Complete Identity Hub setup.
@@ -316,11 +290,6 @@ def setup_identityhub(config) -> bool:
     return all_successful
 
 
-def show_help():
-    """Show help message."""
-    print(__doc__)
-
-
 def main():
     """Main entry point."""
     # Load configuration
@@ -329,35 +298,8 @@ def main():
         logger.error("Failed to load configuration")
         return 1
 
-    # Determine action to perform
-    action = sys.argv[1].lower() if len(sys.argv) > 1 else "setup"
-
-    success = False
-
-    if action == "setup":
-        success = setup_identityhub(config)
-    elif action == "verify":
-        success = verify_identityhub_configuration(config)
-    elif action == "test":
-        # Wait for Identity Hub to be ready first
-        if wait_for_identityhub(config):
-            success = run_all_tests(config)
-        else:
-            logger.error("Identity Hub is not ready for testing")
-    elif action == "credentials":
-        success = setup_credential_mounting(config)
-    elif action == "keys":
-        success = setup_key_storage(config)
-    elif action == "wait":
-        success = wait_for_identityhub(config)
-    elif action == "help" or action == "--help":
-        show_help()
-        return 0
-    else:
-        logger.error(f"Unknown action: {action}")
-        show_help()
-        return 1
-
+    # Run setup
+    success = setup_identityhub(config)
     return 0 if success else 1
 
 
