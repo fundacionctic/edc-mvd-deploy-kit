@@ -65,7 +65,7 @@ task provider:deploy
 ```bash
 # Check service status
 task issuer:status
-task provider:status
+docker compose -p mvds-provider ps
 
 # Verify Issuer health
 curl http://localhost:10010/api/check/health
@@ -79,7 +79,7 @@ curl -H "X-Api-Key: <API_KEY>" http://localhost:8081/management/v3/assets
 ```bash
 # View service status
 task issuer:status
-task provider:status
+docker compose -p mvds-provider ps
 
 # View logs
 docker compose -p mvds-issuer logs -f
@@ -101,23 +101,52 @@ task provider:clean
 
 ```mermaid
 graph TB
-    subgraph "Issuer Service"
-        IS[Issuer Service<br/>Port: 10010]
-        IDB[(PostgreSQL<br/>Attestations)]
-        IV[Vault<br/>Signing Keys]
-        IDID[DID API<br/>Port: 10016]
+    subgraph ISS["Issuer Service Stack"]
+        IS["Issuer Service<br/>Ports: 10010-10016"]
+        IDB["issuer-postgres<br/>Database"]
+        IV["issuer-vault<br/>HashiCorp Vault"]
+        
+        IS --> IDB
+        IS --> IV
     end
     
-    subgraph "Provider Participant"
-        PCP[Control Plane<br/>Port: 8081]
-        PDP[Data Plane<br/>Port: 11002]
-        PIH[Identity Hub<br/>Port: 7001]
-        PDB[(PostgreSQL)]
-        PV[Vault]
-        PDID[DID API<br/>Port: 7003]
+    subgraph PSS["Provider Participant Stack"]
+        PCP["provider-controlplane<br/>Management: 8081<br/>DSP: 8082<br/>Health: 8080"]
+        PDP["provider-dataplane<br/>Public: 11002<br/>Control: 8093<br/>Health: 8090"]
+        PIH["provider-identityhub<br/>Credentials: 7001<br/>STS: 7002<br/>DID: 7003<br/>Health: 7000"]
+        
+        PDB["provider-postgres<br/>Database"]
+        PV["provider-vault<br/>HashiCorp Vault"]
+        
+        PCP --> PDB
+        PCP --> PV
+        PCP --> PIH
+        PDP --> PDB
+        PDP --> PV
+        PDP --> PCP
+        PIH --> PDB
+        PIH --> PV
     end
     
-    IS --> PIH
+    subgraph NET_GROUP["External Network"]
+        NET["mvd-network<br/>Docker Network"]
+    end
+    
+    IS -.-> PIH
+    IS --> NET
+    PCP --> NET
+    PDP --> NET
+    PIH --> NET
+    
+    classDef service fill:#e1f5fe
+    classDef database fill:#f3e5f5
+    classDef vault fill:#fff3e0
+    classDef network fill:#e8f5e8
+    
+    class IS,PCP,PDP,PIH service
+    class IDB,PDB database
+    class IV,PV vault
+    class NET network
 ```
 
 ## Configuration
@@ -142,16 +171,32 @@ ISSUER_SUPERUSER_KEY=<base64-username>.<base64-password>
 
 ### Port Allocation
 
-| Service      | Component      | Port  | Purpose               |
-| ------------ | -------------- | ----- | --------------------- |
-| **Issuer**   | Main API       | 10010 | Health, status        |
-|              | Admin API      | 10013 | Credential management |
-|              | DID API        | 10016 | DID document          |
-| **Provider** | Management API | 8081  | Asset management      |
-|              | DSP Protocol   | 8082  | Inter-connector       |
-|              | Public API     | 11002 | Data access           |
-|              | Identity Hub   | 7001  | Credentials           |
-|              | DID API        | 7003  | DID document          |
+| Service      | Component          | Port  | Purpose                 |
+| ------------ | ------------------ | ----- | ----------------------- |
+| **Issuer**   | Main API           | 10010 | Health, status          |
+|              | STS                | 10011 | Secure Token Service    |
+|              | Issuance API       | 10012 | Credential issuance     |
+|              | Admin API          | 10013 | Credential management   |
+|              | Version API        | 10014 | Version/capabilities    |
+|              | Identity API       | 10015 | Identity service        |
+|              | DID API            | 10016 | DID document resolution |
+|              | Debug Port         | 1043  | Remote debugging        |
+| **Provider** | Control Plane Web  | 8080  | Health checks           |
+|              | Management API     | 8081  | Asset management        |
+|              | DSP Protocol       | 8082  | Inter-connector comm    |
+|              | Control API        | 8083  | Data Plane control      |
+|              | Catalog API        | 8084  | Catalog queries         |
+|              | Data Plane Web     | 8090  | Health checks           |
+|              | Data Plane Control | 8093  | Control Plane comm      |
+|              | Public API         | 11002 | Data access             |
+|              | Identity Hub Web   | 7000  | Health checks           |
+|              | Credentials API    | 7001  | Credential operations   |
+|              | STS API            | 7002  | Token service           |
+|              | DID API            | 7003  | DID document resolution |
+|              | Identity API       | 7005  | Identity operations     |
+|              | CP Debug Port      | 1044  | Control Plane debugging |
+|              | DP Debug Port      | 1045  | Data Plane debugging    |
+|              | IH Debug Port      | 1046  | Identity Hub debugging  |
 
 
 
@@ -266,7 +311,7 @@ curl -H "X-Api-Key: <SUPERUSER_KEY>" \
 ```bash
 # Check service status
 task issuer:status
-task provider:status
+docker compose -p mvds-provider ps
 
 # View logs
 docker compose -p mvds-issuer logs -f
