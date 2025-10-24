@@ -52,7 +52,7 @@ def setup_participant_registry(config) -> bool:
         "participants": [
             {
                 "participantId": config.provider_did,
-                "url": f"http://localhost:{config.provider_cp_protocol_port}/api/dsp",
+                "url": f"http://{config.provider_public_host}:{config.provider_cp_protocol_port}/api/dsp",
                 "supportedProtocols": [
                     {
                         "protocolName": "dataspace-protocol-http",
@@ -99,7 +99,7 @@ def setup_did_resolution(config) -> bool:
         "dids": [
             {
                 "did": config.provider_did,
-                "url": f"http://localhost:{config.provider_ih_did_port}/.well-known/did.json",
+                "url": f"http://{config.provider_public_host}:{config.provider_ih_did_port}/.well-known/did.json",
             }
         ]
     }

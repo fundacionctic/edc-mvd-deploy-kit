@@ -85,7 +85,7 @@ def setup_control_plane_communication(config) -> bool:
     """
     logger.info("Setting up Control Plane communication...")
 
-    cp_health_url = f"http://localhost:{config.provider_cp_web_port}/api/check/health"
+    cp_health_url = f"http://{config.provider_public_host}:{config.provider_cp_web_port}/api/check/health"
 
     if check_component_health("Control Plane", cp_health_url, timeout=10):
         return True
