@@ -29,19 +29,12 @@ import sys
 import urllib.parse
 from pathlib import Path
 
-# Add the scripts directory to the path to import config
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-try:
-    from provider.config import load_config
-except ImportError:
-    print("ERROR: Could not import provider config")
-    print("Make sure you're running from the project root directory")
-    sys.exit(1)
+from config import load_config
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
 logger = logging.getLogger(__name__)
 
 
@@ -386,8 +379,7 @@ def write_participants_file(config) -> bool:
 
 def main():
     """Main entry point."""
-    logger.info("Generating Provider Participant configuration files")
-    logger.info("=" * 60)
+    logger.info("Generating Provider Participant configuration files\n" + "=" * 60)
 
     # Load configuration
     config = load_config()
@@ -395,9 +387,9 @@ def main():
         logger.error("Failed to load configuration")
         return 1
 
-    logger.info("Configuration loaded successfully")
-    logger.info(f"Provider DID: {config.provider_did}")
-    logger.info("")
+    logger.info(
+        f"Configuration loaded successfully\nProvider DID: {config.provider_did}\n"
+    )
 
     # Generate configuration files
     success = True
@@ -425,20 +417,19 @@ def main():
     if not write_participants_file(config):
         success = False
 
-    logger.info("")
     if success:
-        logger.info("🎉 All configuration files generated successfully!")
-        logger.info("")
-        logger.info("Generated files:")
-        logger.info("  - config/provider-controlplane.env")
-        logger.info("  - config/provider-dataplane.env")
-        logger.info("  - config/provider-identityhub.env")
-        logger.info("  - deployment/provider/participants.json")
-        logger.info("")
-        logger.info("Next steps:")
-        logger.info("  1. Review the generated configuration files")
-        logger.info("  2. Start the provider services with Docker Compose")
-        logger.info("  3. Verify all components are healthy")
+        logger.info(
+            "\n🎉 All configuration files generated successfully!\n\n"
+            "Generated files:\n"
+            "  - config/provider-controlplane.env\n"
+            "  - config/provider-dataplane.env\n"
+            "  - config/provider-identityhub.env\n"
+            "  - deployment/provider/participants.json\n\n"
+            "Next steps:\n"
+            "  1. Review the generated configuration files\n"
+            "  2. Start the provider services with Docker Compose\n"
+            "  3. Verify all components are healthy"
+        )
         return 0
     else:
         logger.error("❌ Failed to generate some configuration files")

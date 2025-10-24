@@ -9,7 +9,7 @@ This module provides shared functionality used across multiple provider scripts:
 - Common patterns
 
 Usage:
-    from provider.common_utils import wait_for_component, setup_logging
+    from common_utils import wait_for_component, setup_logging
 """
 
 import logging
@@ -21,7 +21,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(level: int = logging.INFO, format_string: Optional[str] = None) -> None:
+def setup_logging(
+    level: int = logging.INFO, format_string: Optional[str] = None
+) -> None:
     """
     Configure logging with standardized format.
 
@@ -36,10 +38,7 @@ def setup_logging(level: int = logging.INFO, format_string: Optional[str] = None
 
 
 def wait_for_component(
-    component_name: str,
-    health_url: str,
-    timeout: int = 60,
-    check_interval: int = 5
+    component_name: str, health_url: str, timeout: int = 60, check_interval: int = 5
 ) -> bool:
     """
     Wait for a component to become ready by polling its health endpoint.
@@ -116,9 +115,7 @@ def validate_port_number(port_value: str, port_name: str = "port") -> bool:
     try:
         port = int(port_value)
         if port < 1 or port > 65535:
-            logger.error(
-                f"Invalid {port_name}: {port} (must be between 1-65535)"
-            )
+            logger.error(f"Invalid {port_name}: {port} (must be between 1-65535)")
             return False
         return True
     except ValueError:
@@ -126,7 +123,9 @@ def validate_port_number(port_value: str, port_name: str = "port") -> bool:
         return False
 
 
-def mask_sensitive_value(value: str, visible_chars: int = 4, mask_char: str = "*") -> str:
+def mask_sensitive_value(
+    value: str, visible_chars: int = 4, mask_char: str = "*"
+) -> str:
     """
     Mask a sensitive value for logging, showing only last few characters.
 
@@ -145,9 +144,7 @@ def mask_sensitive_value(value: str, visible_chars: int = 4, mask_char: str = "*
 
 
 def check_component_health(
-    component_name: str,
-    health_url: str,
-    timeout: int = 10
+    component_name: str, health_url: str, timeout: int = 10
 ) -> bool:
     """
     Check if a component is currently healthy (single check, no retries).

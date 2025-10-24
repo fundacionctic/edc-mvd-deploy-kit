@@ -17,16 +17,9 @@ import logging
 import os
 import sys
 
-# Add the scripts directory to the path to import config
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common_utils import validate_did_format, validate_port_number
 
-try:
-    from provider.common_utils import validate_did_format, validate_port_number
-    from provider.config import load_config
-except ImportError:
-    print("ERROR: Could not import provider modules")
-    print("Make sure you're running from the project root directory")
-    sys.exit(1)
+from config import load_config
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -145,11 +138,10 @@ def setup_sts_integration(config) -> bool:
         "public_key_id": f"{config.provider_did}#key-1",
     }
 
-    logger.info("STS Configuration:")
-    for key, value in sts_config.items():
-        logger.info(f"  {key}: {value}")
-
-    logger.info("✅ STS integration configuration validated")
+    config_str = "\n".join(f"  {key}: {value}" for key, value in sts_config.items())
+    logger.info(
+        f"STS Configuration:\n{config_str}\n✅ STS integration configuration validated"
+    )
     return True
 
 

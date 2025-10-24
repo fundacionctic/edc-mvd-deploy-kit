@@ -25,15 +25,7 @@ import urllib.parse
 import urllib.request
 from typing import List
 
-# Add the scripts directory to the path to import config
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-try:
-    from provider.config import load_config
-except ImportError:
-    print("ERROR: Could not import provider config")
-    print("Make sure you're running from the project root directory")
-    sys.exit(1)
+from config import load_config
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -81,7 +73,7 @@ def poll_credential_status(config, status_url: str) -> bool:
     headers = config.get_identity_superuser_headers()
 
     for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
-        logger.info(f"Polling attempt {attempt}/{POLL_MAX_ATTEMPTS}...")
+        logger.debug(f"Polling attempt {attempt}/{POLL_MAX_ATTEMPTS}...")
 
         try:
             request = urllib.request.Request(status_url, headers=headers, method="GET")
@@ -100,7 +92,7 @@ def poll_credential_status(config, status_url: str) -> bool:
                     logger.error(f"❌ Credential request failed with status: {status}")
                     return False
                 else:
-                    logger.info(
+                    logger.debug(
                         f"Status is '{status}', waiting {POLL_INTERVAL_SECONDS}s before next poll..."
                     )
                     time.sleep(POLL_INTERVAL_SECONDS)
@@ -187,7 +179,7 @@ def request_credentials_from_issuer(
             response_data = response.read().decode("utf-8")
             response_headers = dict(response.headers)
             logger.info("✅ Credentials requested successfully")
-            logger.info(f"Response headers: {json.dumps(response_headers, indent=2)}")
+            logger.debug(f"Response headers: {json.dumps(response_headers, indent=2)}")
             logger.debug(f"Response: {response_data}")
 
             # Check for Location header to poll status
@@ -198,6 +190,7 @@ def request_credentials_from_issuer(
                 if location_url.startswith("http://"):
                     # Extract the path part and prepend /api/identity
                     from urllib.parse import urlparse
+
                     parsed = urlparse(location_url)
                     fixed_path = f"/api/identity{parsed.path}"
                     location_url = f"{parsed.scheme}://{parsed.netloc}{fixed_path}"
@@ -237,61 +230,58 @@ def main():
         logger.error("Failed to load configuration")
         return 1
 
-    logger.info("=" * 60)
-    logger.info("Request Credentials from Issuer Service")
-    logger.info("=" * 60)
-    logger.info("")
-    logger.info("Prerequisites:")
-    logger.info("  ✓ Provider participant registered in Identity Hub")
-    logger.info("  ✓ Issuer service running and seeded")
-    logger.info("  ✓ Provider seeded as holder in Issuer database")
-    logger.info("")
+    logger.info(
+        "=" * 60 + "\n" +
+        "Request Credentials from Issuer Service\n" +
+        "=" * 60 + "\n\n" +
+        "Prerequisites:\n"
+        "  ✓ Provider participant registered in Identity Hub\n"
+        "  ✓ Issuer service running and seeded\n"
+        "  ✓ Provider seeded as holder in Issuer database\n"
+    )
 
     # Get participant DID from configuration
     participant_did = config.provider_did
-    logger.info(f"Provider DID: {participant_did}")
 
     # Construct issuer DID
     # Issuer uses DID API port, so we need to URL encode it
     issuer_host_with_port = f"{config.issuer_public_host}:{config.issuer_did_api_port}"
     encoded_issuer_host = urllib.parse.quote(issuer_host_with_port, safe="")
     issuer_did = f"did:web:{encoded_issuer_host}"
-    logger.info(f"Issuer DID: {issuer_did}")
-    logger.info("")
+
+    logger.info(f"Provider DID: {participant_did}\n" f"Issuer DID: {issuer_did}\n")
 
     # Request credentials from issuer
     credential_types = [CREDENTIAL_TYPE_MEMBERSHIP, CREDENTIAL_TYPE_DATA_PROCESSOR]
 
-    logger.info("=" * 60)
-    logger.info("Requesting Credentials from Issuer")
-    logger.info("=" * 60)
+    logger.info("=" * 30 + "\nRequesting Credentials from Issuer")
 
     if not request_credentials_from_issuer(
         config, participant_did, issuer_did, credential_types
     ):
-        logger.error("Failed to request credentials from issuer")
-        logger.error("")
-        logger.error("Troubleshooting:")
-        logger.error("  1. Verify provider participant is registered:")
-        logger.error("     python3 scripts/provider/register_provider_participant.py")
-        logger.error("  2. Verify issuer is running and seeded:")
-        logger.error("     task issuer:verify")
-        logger.error("  3. Check Identity Hub logs:")
-        logger.error("     docker logs mvd-provider-identityhub")
+        logger.error(
+            "Failed to request credentials from issuer\n\n"
+            "Troubleshooting:\n"
+            "  1. Verify provider participant is registered:\n"
+            "     python3 scripts/provider/register_provider_participant.py\n"
+            "  2. Verify issuer is running and seeded:\n"
+            "     task issuer:verify\n"
+            "  3. Check Identity Hub logs:\n"
+            "     docker logs mvd-provider-identityhub"
+        )
         return 1
 
-    logger.info("")
-    logger.info("=" * 60)
-    logger.info("✅ Credentials Requested Successfully")
-    logger.info("=" * 60)
-    logger.info("")
-    logger.info("The credentials have been requested from the Issuer service.")
-    logger.info("The Issuer will sign and issue the credentials.")
-    logger.info("")
-    logger.info("Next steps:")
-    logger.info("  1. Verify credentials were issued:")
-    logger.info("     python3 scripts/provider/validate_credentials.py")
-    logger.info("  2. Check stored credentials in Identity Hub")
+    logger.info(
+        "\n" + "=" * 60 + "\n" +
+        "✅ Credentials Requested Successfully\n" +
+        "=" * 60 + "\n\n" +
+        "The credentials have been requested from the Issuer service.\n"
+        "The Issuer will sign and issue the credentials.\n\n"
+        "Next steps:\n"
+        "  1. Verify credentials were issued:\n"
+        "     python3 scripts/provider/validate_credentials.py\n"
+        "  2. Check stored credentials in Identity Hub"
+    )
 
     return 0
 

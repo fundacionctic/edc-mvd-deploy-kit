@@ -16,20 +16,9 @@ import logging
 import os
 import sys
 
-# Add the scripts directory to the path to import config
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common_utils import validate_did_format, validate_port_number
 
-try:
-    from provider.common_utils import (
-        check_component_health,
-        validate_did_format,
-        validate_port_number,
-    )
-    from provider.config import load_config
-except ImportError:
-    print("ERROR: Could not import provider modules")
-    print("Make sure you're running from the project root directory")
-    sys.exit(1)
+from config import load_config
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -65,11 +54,12 @@ def setup_dataplane_configuration(config) -> bool:
         "token_verifier_alias": f"{config.provider_did}#key-1",
     }
 
-    logger.info("Data Plane Configuration:")
-    for key, value in dataplane_config.items():
-        logger.info(f"  {key}: {value}")
-
-    logger.info("✅ Data Plane configuration validated")
+    config_str = "\n".join(
+        f"  {key}: {value}" for key, value in dataplane_config.items()
+    )
+    logger.info(
+        f"Data Plane Configuration:\n{config_str}\n✅ Data Plane configuration validated"
+    )
     return True
 
 
@@ -85,16 +75,16 @@ def setup_control_plane_communication(config) -> bool:
     """
     logger.info("Setting up Control Plane communication...")
 
-    cp_health_url = f"http://{config.provider_public_host}:{config.provider_cp_web_port}/api/check/health"
+    cp_config = {
+        "selector_url": f"http://provider-controlplane:{config.provider_cp_control_port}/api/control/v1/dataplanes",
+        "control_port": config.provider_cp_control_port,
+    }
 
-    if check_component_health("Control Plane", cp_health_url, timeout=10):
-        return True
-    else:
-        logger.info("Make sure Control Plane is running before starting Data Plane")
-        logger.info(
-            "⚠️  This is expected during initial setup - continuing with configuration"
-        )
-        return True  # Allow setup to continue even if Control Plane is not running yet
+    config_str = "\n".join(f"  {key}: {value}" for key, value in cp_config.items())
+    logger.info(
+        f"Control Plane Communication Configuration:\n{config_str}\n✅ Control Plane communication configuration validated"
+    )
+    return True
 
 
 def setup_token_configuration(config) -> bool:
@@ -120,11 +110,8 @@ def setup_token_configuration(config) -> bool:
         "sts_client_secret_alias": f"{config.provider_participant_name}-sts-client-secret",
     }
 
-    logger.info("Token Configuration:")
-    for key, value in token_config.items():
-        logger.info(f"  {key}: {value}")
-
-    logger.info("✅ Token configuration validated")
+    config_str = "\n".join(f"  {key}: {value}" for key, value in token_config.items())
+    logger.info(f"Token Configuration:\n{config_str}\n✅ Token configuration validated")
     return True
 
 

@@ -161,7 +161,7 @@ def query_api(
     Returns:
         Parsed JSON response or None on failure
     """
-    logger.info(f"Querying {entity_name}: {url}")
+    logger.debug(f"Querying {entity_name}: {url}")
 
     method = "POST" if query_body else "GET"
     success, response_body, status_code = make_request(

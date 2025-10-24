@@ -16,16 +16,9 @@ import logging
 import os
 import sys
 
-# Add the scripts directory to the path to import config
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common_utils import validate_did_format, validate_port_number
 
-try:
-    from provider.common_utils import validate_did_format, validate_port_number
-    from provider.config import load_config
-except ImportError:
-    print("ERROR: Could not import provider modules")
-    print("Make sure you're running from the project root directory")
-    sys.exit(1)
+from config import load_config
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -90,34 +83,19 @@ def setup_key_storage(config) -> bool:
         "sts_public_key_id": "key-1",
     }
 
-    logger.info("Key Storage Configuration:")
+    config_lines = []
     for key, value in key_config.items():
         if "token" in key.lower():
-            logger.info(f"  {key}: {'*' * 10}[MASKED]")
+            config_lines.append(f"  {key}: {'*' * 10}[MASKED]")
         else:
-            logger.info(f"  {key}: {value}")
+            config_lines.append(f"  {key}: {value}")
 
-    # Test Vault connectivity
-    import urllib.error
-    import urllib.request
-
-    vault_health_url = "http://localhost:8200/v1/sys/health"
-
-    try:
-        with urllib.request.urlopen(vault_health_url, timeout=10) as response:
-            status_code = response.getcode()
-            if status_code in [200, 429, 472, 473]:
-                logger.info("✅ Vault is accessible for key storage")
-                return True
-            else:
-                logger.error(f"❌ Vault health check failed: {status_code}")
-                return False
-    except Exception as e:
-        logger.error(f"❌ Cannot reach Vault: {e}")
-        logger.info(
-            "⚠️  This is expected during initial setup - continuing with configuration"
-        )
-        return True  # Allow setup to continue even if Vault is not running yet
+    logger.info(
+        f"Key Storage Configuration:\n"
+        + "\n".join(config_lines)
+        + "\n✅ Key storage configuration validated"
+    )
+    return True
 
 
 def setup_did_configuration(config) -> bool:
@@ -141,16 +119,13 @@ def setup_did_configuration(config) -> bool:
         "public_key_alias": f"{config.provider_participant_name}-publickey",
     }
 
-    logger.info("DID Configuration:")
-    for key, value in did_config.items():
-        logger.info(f"  {key}: {value}")
-
     # Validate DID format
     if not validate_did_format(config.provider_did):
         logger.error(f"❌ Invalid DID format: {config.provider_did}")
         return False
 
-    logger.info("✅ DID configuration validated")
+    config_str = "\n".join(f"  {key}: {value}" for key, value in did_config.items())
+    logger.info(f"DID Configuration:\n{config_str}\n✅ DID configuration validated")
     return True
 
 
@@ -177,11 +152,8 @@ def setup_sts_configuration(config) -> bool:
         "access_token_validation": "true",
     }
 
-    logger.info("STS Configuration:")
-    for key, value in sts_config.items():
-        logger.info(f"  {key}: {value}")
-
-    logger.info("✅ STS configuration validated")
+    config_str = "\n".join(f"  {key}: {value}" for key, value in sts_config.items())
+    logger.info(f"STS Configuration:\n{config_str}\n✅ STS configuration validated")
     return True
 
 

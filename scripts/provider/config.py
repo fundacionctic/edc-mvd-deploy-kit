@@ -326,15 +326,33 @@ class Config:
         self.provider_did = self._generate_provider_did()
 
         # Construct base URLs using proper hostnames
-        self.provider_cp_management_url = self._build_url(self.provider_public_host, self.provider_cp_management_port)
-        self.provider_cp_protocol_url = self._build_url(self.provider_public_host, self.provider_cp_protocol_port)
-        self.provider_cp_catalog_url = self._build_url(self.provider_public_host, self.provider_cp_catalog_port)
-        self.provider_dp_public_url = self._build_url(self.provider_public_host, self.provider_dp_public_port)
-        self.provider_ih_credentials_url = self._build_url(self.provider_public_host, self.provider_ih_credentials_port)
-        self.provider_ih_sts_url = self._build_url(self.provider_public_host, self.provider_ih_sts_port)
-        self.provider_ih_identity_url = self._build_url(self.provider_public_host, self.provider_ih_identity_port)
-        self.issuer_admin_url = self._build_url(self.issuer_public_host, self.issuer_admin_port)
-        self.issuer_issuance_url = self._build_url(self.issuer_public_host, self.issuer_issuance_port)
+        self.provider_cp_management_url = self._build_url(
+            self.provider_public_host, self.provider_cp_management_port
+        )
+        self.provider_cp_protocol_url = self._build_url(
+            self.provider_public_host, self.provider_cp_protocol_port
+        )
+        self.provider_cp_catalog_url = self._build_url(
+            self.provider_public_host, self.provider_cp_catalog_port
+        )
+        self.provider_dp_public_url = self._build_url(
+            self.provider_public_host, self.provider_dp_public_port
+        )
+        self.provider_ih_credentials_url = self._build_url(
+            self.provider_public_host, self.provider_ih_credentials_port
+        )
+        self.provider_ih_sts_url = self._build_url(
+            self.provider_public_host, self.provider_ih_sts_port
+        )
+        self.provider_ih_identity_url = self._build_url(
+            self.provider_public_host, self.provider_ih_identity_port
+        )
+        self.issuer_admin_url = self._build_url(
+            self.issuer_public_host, self.issuer_admin_port
+        )
+        self.issuer_issuance_url = self._build_url(
+            self.issuer_public_host, self.issuer_issuance_port
+        )
 
         self._log_configuration()
 
@@ -363,7 +381,9 @@ class Config:
         """
         if self.provider_ih_did_port in ["443", "80"]:
             # Standard ports don't need URL encoding
-            return f"did:web:{self.provider_public_host}:{self.provider_participant_name}"
+            return (
+                f"did:web:{self.provider_public_host}:{self.provider_participant_name}"
+            )
         else:
             # Non-standard ports need URL encoding
             host_with_port = f"{self.provider_public_host}:{self.provider_ih_did_port}"
@@ -385,18 +405,20 @@ class Config:
 
     def _log_configuration(self) -> None:
         """Log configuration details with sensitive data masked."""
-        logger.info("Provider Participant configuration loaded:")
-        logger.info(f"  Provider DID: {self.provider_did}")
-        logger.info(f"  Public Host: {self.provider_public_host}")
-        logger.info(f"  Participant Name: {self.provider_participant_name}")
-        logger.info(f"  Management API: {self.provider_cp_management_url}")
-        logger.info(f"  DSP Protocol: {self.provider_cp_protocol_url}")
-        logger.info(f"  Catalog API: {self.provider_cp_catalog_url}")
-        logger.info(f"  Public Data API: {self.provider_dp_public_url}")
-        logger.info(f"  Credentials API: {self.provider_ih_credentials_url}")
-        logger.info(f"  STS API: {self.provider_ih_sts_url}")
-        logger.info(f"  Issuer Admin API: {self.issuer_admin_url}")
-        logger.info(f"  API Keys: {MASK_CHARACTER * MASK_LENGTH}[MASKED]")
+        logger.info(
+            f"Provider Participant configuration loaded:\n"
+            f"  Provider DID: {self.provider_did}\n"
+            f"  Public Host: {self.provider_public_host}\n"
+            f"  Participant Name: {self.provider_participant_name}\n"
+            f"  Management API: {self.provider_cp_management_url}\n"
+            f"  DSP Protocol: {self.provider_cp_protocol_url}\n"
+            f"  Catalog API: {self.provider_cp_catalog_url}\n"
+            f"  Public Data API: {self.provider_dp_public_url}\n"
+            f"  Credentials API: {self.provider_ih_credentials_url}\n"
+            f"  STS API: {self.provider_ih_sts_url}\n"
+            f"  Issuer Admin API: {self.issuer_admin_url}\n"
+            f"  API Keys: {MASK_CHARACTER * MASK_LENGTH}[MASKED]"
+        )
 
     def get_management_headers(self) -> Dict[str, str]:
         """
@@ -490,7 +512,9 @@ class Config:
             with open(self.provider_private_key_file, "r") as f:
                 return f.read()
         except FileNotFoundError:
-            logger.error(f"Private key file not found: {self.provider_private_key_file}")
+            logger.error(
+                f"Private key file not found: {self.provider_private_key_file}"
+            )
             logger.error("Run: python3 scripts/provider/generate_keys.py")
             return None
         except Exception as e:
