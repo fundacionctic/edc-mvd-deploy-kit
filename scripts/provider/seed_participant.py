@@ -221,6 +221,19 @@ def get_policy_definitions() -> List[Dict]:
         {
             "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
             "@type": "PolicyDefinition",
+            "@id": "allow-all",
+            "policy": {
+                "@type": "Set",
+                "permission": [
+                    {
+                        "action": "use",
+                    }
+                ],
+            },
+        },
+        {
+            "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
+            "@type": "PolicyDefinition",
             "@id": "require-membership",
             "policy": {
                 "@type": "Set",
@@ -285,10 +298,10 @@ def get_contract_definitions() -> List[Dict]:
     return [
         {
             "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
-            "@id": "member-and-dataprocessor-def",
+            "@id": "simple-access-def",
             "@type": "ContractDefinition",
-            "accessPolicyId": "require-membership",
-            "contractPolicyId": "require-dataprocessor",
+            "accessPolicyId": "allow-all",
+            "contractPolicyId": "allow-all",
             "assetsSelector": {
                 "@type": "Criterion",
                 "operandLeft": "https://w3id.org/edc/v0.0.1/ns/id",
