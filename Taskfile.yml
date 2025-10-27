@@ -101,6 +101,18 @@ tasks:
     cmds:
       - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} down -v
 
+  issuer:proxy-postgres:
+    desc: Run an emphemeral container that exposes the issuer database on the host
+    vars:
+      PG_PORT_HOST: 5432
+      PG_CONTAINER_NAME: mvd-issuer-postgres
+    cmds:
+      - >
+        docker run --rm --network {{.DOCKER_NETWORK}}
+        -p {{.PG_PORT_HOST}}:5432
+        alpine:latest
+        sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.PG_CONTAINER_NAME}}:5432"
+
   # ============================================================
   # PROVIDER PARTICIPANT TASKS
   # ============================================================
@@ -170,3 +182,27 @@ tasks:
     prompt: This will delete all Provider data. Continue?
     cmds:
       - docker compose -p {{.PROVIDER_COMPOSE_PROJECT_NAME}} -f {{.PROVIDER_COMPOSE_FILE}} down -v
+
+  provider:proxy-postgres:
+    desc: Run an emphemeral container that exposes the provider database on the host
+    vars:
+      PG_PORT_HOST: 5432
+      PG_CONTAINER_NAME: mvd-provider-postgres
+    cmds:
+      - >
+        docker run --rm --network {{.DOCKER_NETWORK}}
+        -p {{.PG_PORT_HOST}}:5432
+        alpine:latest
+        sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.PG_CONTAINER_NAME}}:5432"
+
+  provider:trace-http-requests:
+    desc: Exec into the IdentityHub container to trace all HTTP/S requests
+    vars:
+      IH_CONTAINER_NAME: mvd-provider-identityhub
+    cmds:
+      - >
+        docker run --rm -it
+        --net container:{{.IH_CONTAINER_NAME}}
+        nicolaka/netshoot
+        ngrep -q -W byline port 80 or port 443 or port 7000 or port 7001 or port 7002 or port 7003 or port 7005
+
