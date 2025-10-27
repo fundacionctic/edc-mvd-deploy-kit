@@ -44,6 +44,8 @@ Thumbs.db
 # Generated configuration files
 config/*.env
 !config/*.env.template
+config/*.properties
+!config/*.properties.template
 
 # Generated issuer files
 assets/issuer/did.json

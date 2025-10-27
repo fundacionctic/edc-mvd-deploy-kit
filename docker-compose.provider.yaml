@@ -58,6 +58,7 @@ services:
       - ./config/provider-controlplane.env
     volumes:
       - ./deployment/provider:/app/deployment/provider:ro
+      - ./config/trusted-issuers.properties:/app/configuration.properties:ro
     depends_on:
       provider-postgres:
         condition: service_healthy

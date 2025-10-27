@@ -1,0 +1,13 @@
+# ============================================================
+# TRUSTED ISSUERS CONFIGURATION TEMPLATE
+# ============================================================
+# Generated from config/trusted-issuers.properties.template
+# DO NOT EDIT MANUALLY - Changes will be overwritten
+# Generation: source .env && envsubst < config/trusted-issuers.properties.template > config/trusted-issuers.properties
+
+# This file contains trusted issuer configuration that cannot be
+# properly set via environment variables due to hyphen parsing issues
+# in the EDC framework's environment variable to property mapping.
+
+edc.iam.trusted-issuer.demoissuer.id=did:web:${ISSUER_PUBLIC_HOST}%3A${ISSUER_DID_API_PORT}
+edc.iam.trusted-issuer.demoissuer.supportedtypes=["*"]

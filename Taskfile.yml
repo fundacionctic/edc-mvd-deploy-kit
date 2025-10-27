@@ -124,6 +124,7 @@ tasks:
       - envsubst < {{.ROOT_DIR}}/config/provider-controlplane.env.template > {{.ROOT_DIR}}/config/provider-controlplane.env
       - envsubst < {{.ROOT_DIR}}/config/provider-dataplane.env.template > {{.ROOT_DIR}}/config/provider-dataplane.env
       - envsubst < {{.ROOT_DIR}}/config/provider-identityhub.env.template > {{.ROOT_DIR}}/config/provider-identityhub.env
+      - envsubst < {{.ROOT_DIR}}/config/trusted-issuers.properties.template > {{.ROOT_DIR}}/config/trusted-issuers.properties
       - envsubst < {{.ROOT_DIR}}/deployment/provider/participants.json.template > {{.ROOT_DIR}}/deployment/provider/participants.json
 
   provider:validate-config:
