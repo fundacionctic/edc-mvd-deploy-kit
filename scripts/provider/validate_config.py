@@ -362,7 +362,7 @@ def main():
 
     if not config_dir.exists():
         logger.error(
-            "❌ Config directory not found. Run: python3 scripts/provider/generate_config.py"
+            "❌ Config directory not found. Run: task provider:generate-config"
         )
         return 1
 

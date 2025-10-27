@@ -55,6 +55,7 @@ deployment/issuer/init-issuer-db.sql
 # Generated provider files
 deployment/provider/did.docker.json
 deployment/provider/participants.json
+config/provider-*.env
 
 # Generated DID registry
 assets/did-registry.json

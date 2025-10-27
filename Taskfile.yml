@@ -106,9 +106,13 @@ tasks:
   # ============================================================
 
   provider:generate-config:
-    desc: Generate configuration files for all components
+    desc: Generate configuration files for all components using envsubst
     cmds:
-      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/generate_config.py"
+      - "{{.ROOT_DIR}}/scripts/provider/validate_env.sh"
+      - envsubst < {{.ROOT_DIR}}/config/provider-controlplane.env.template > {{.ROOT_DIR}}/config/provider-controlplane.env
+      - envsubst < {{.ROOT_DIR}}/config/provider-dataplane.env.template > {{.ROOT_DIR}}/config/provider-dataplane.env
+      - envsubst < {{.ROOT_DIR}}/config/provider-identityhub.env.template > {{.ROOT_DIR}}/config/provider-identityhub.env
+      - envsubst < {{.ROOT_DIR}}/deployment/provider/participants.json.template > {{.ROOT_DIR}}/deployment/provider/participants.json
 
   provider:validate-config:
     desc: Validate generated configuration files
