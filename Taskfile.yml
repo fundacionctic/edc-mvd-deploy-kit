@@ -216,3 +216,30 @@ tasks:
         docker exec {{.VAULT_CONTAINER_NAME}}
         sh -c 'VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN={{.PROVIDER_VAULT_TOKEN}} vault kv list secret/'
 
+  # ============================================================
+  # END-TO-END TESTING TASKS
+  # ============================================================
+
+  e2e:test:
+    desc: Run end-to-end test for dataspace transaction
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py"
+
+  e2e:test-verbose:
+    desc: Run end-to-end test with verbose output
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py --verbose"
+
+  e2e:test-asset:
+    desc: Run end-to-end test for specific asset (use ASSET_ID=asset-2)
+    cmds:
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py --asset-id {{.ASSET_ID}}"
+    vars:
+      ASSET_ID: '{{.ASSET_ID | default "asset-1"}}'
+
+  e2e:full-test:
+    desc: Complete deployment and E2E test from scratch
+    cmds:
+      - task: issuer:deploy
+      - task: provider:deploy
+      - task: e2e:test
