@@ -276,11 +276,7 @@ def main():
         "✅ Credentials Requested Successfully\n" +
         "=" * 60 + "\n\n" +
         "The credentials have been requested from the Issuer service.\n"
-        "The Issuer will sign and issue the credentials.\n\n"
-        "Next steps:\n"
-        "  1. Verify credentials were issued:\n"
-        "     python3 scripts/provider/validate_credentials.py\n"
-        "  2. Check stored credentials in Identity Hub"
+        "The Issuer will sign and issue the credentials."
     )
 
     return 0
