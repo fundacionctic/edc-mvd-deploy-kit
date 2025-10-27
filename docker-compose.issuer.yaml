@@ -55,6 +55,7 @@ services:
       - "${ISSUER_VERSION_PORT}:${ISSUER_VERSION_PORT}" # Version
       - "${ISSUER_IDENTITY_PORT}:${ISSUER_IDENTITY_PORT}" # Identity
       - "${ISSUER_DID_API_PORT}:${ISSUER_DID_API_PORT}" # DID
+      - "${ISSUER_STATUSLIST_PORT}:${ISSUER_STATUSLIST_PORT}" # Status List
       - "${ISSUER_DEBUG_PORT}:${ISSUER_DEBUG_PORT}" # Debug
     env_file:
       - ./config/issuer-service.env
