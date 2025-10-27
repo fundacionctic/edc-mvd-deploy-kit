@@ -1,4 +1,3 @@
 {
-  "consumer": "did:web:${PROVIDER_PUBLIC_HOST}:7083:consumer",
-  "provider": "did:web:${PROVIDER_PUBLIC_HOST}:${PROVIDER_IH_DID_PORT}:${PROVIDER_PARTICIPANT_NAME}"
+  "provider": "did:web:${PROVIDER_PUBLIC_HOST}%3A${PROVIDER_IH_DID_PORT}:${PROVIDER_PARTICIPANT_NAME}"
 }
