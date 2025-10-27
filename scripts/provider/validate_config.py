@@ -206,7 +206,7 @@ def validate_ports(all_env_vars: Dict[str, Dict[str, str]]) -> bool:
 
     for filename, env_vars in all_env_vars.items():
         for var_name, var_value in env_vars.items():
-            if "PORT" in var_name and not var_name.endswith("_URL"):
+            if var_name.endswith("_PORT") or var_name.endswith("PORT") and not var_name.endswith("_URL"):
                 # Validate port format
                 if not validate_port_format(var_value):
                     invalid_ports.append((filename, var_name, var_value))
