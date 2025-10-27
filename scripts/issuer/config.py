@@ -42,6 +42,7 @@ ENV_ISSUER_SUPERUSER_KEY = "ISSUER_SUPERUSER_KEY"
 ENV_ISSUER_HTTP_PORT = "ISSUER_HTTP_PORT"
 ENV_CONSUMER_DID_SERVER_PORT = "CONSUMER_DID_SERVER_PORT"
 ENV_PROVIDER_IH_DID_PORT = "PROVIDER_IH_DID_PORT"
+ENV_ISSUER_CREDENTIAL_VALIDITY_SECONDS = "ISSUER_CREDENTIAL_VALIDITY_SECONDS"
 
 # Default values
 DEFAULT_ISSUER_ADMIN_PORT = "10013"
@@ -53,6 +54,7 @@ DEFAULT_ISSUER_DID_API_PORT = "10016"
 DEFAULT_ISSUER_SUPERUSER_KEY = "c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo="
 DEFAULT_CONSUMER_DID_SERVER_PORT = "7083"
 DEFAULT_PROVIDER_IH_DID_PORT = "7003"
+DEFAULT_ISSUER_CREDENTIAL_VALIDITY_SECONDS = "15552000"  # 180 days
 
 # Validation constants
 MIN_PORT_NUMBER = 1
@@ -141,6 +143,13 @@ class Config:
             self.issuer_public_host, self.provider_ih_did_port, "provider"
         )
 
+        self.credential_validity_seconds = int(
+            self._get_env(
+                ENV_ISSUER_CREDENTIAL_VALIDITY_SECONDS,
+                DEFAULT_ISSUER_CREDENTIAL_VALIDITY_SECONDS,
+            )
+        )
+
         self.issuer_admin_url = self._build_url(
             self.issuer_public_host, self.issuer_admin_port
         )
@@ -188,6 +197,9 @@ class Config:
         logger.info(f"  Issuer DID: {self.issuer_did}")
         logger.info(f"  Consumer DID: {self.consumer_did}")
         logger.info(f"  Provider DID: {self.provider_did}")
+        logger.info(
+            f"  Credential Validity: {self.credential_validity_seconds} seconds"
+        )
         logger.info(f"  API Key: {MASK_CHARACTER * MASK_LENGTH}[MASKED]")
 
     def get_headers(self) -> Dict[str, str]:
@@ -248,6 +260,7 @@ class Config:
             ("issuer_superuser_key", self.issuer_superuser_key),
             ("consumer_did", self.consumer_did),
             ("provider_did", self.provider_did),
+            ("credential_validity_seconds", str(self.credential_validity_seconds)),
         ]
 
         for field_name, field_value in required_fields:
@@ -279,11 +292,23 @@ class Config:
         ]
         return all(self._validate_port(name, value) for name, value in ports)
 
+    def _validate_credential_validity(self) -> bool:
+        """Validate credential validity seconds configuration."""
+        if self.credential_validity_seconds <= 0:
+            logger.error(
+                f"Invalid credential validity: {self.credential_validity_seconds} "
+                "(must be positive)"
+            )
+            return False
+        return True
+
     def validate(self) -> bool:
         """Validate configuration."""
         if not self._validate_required_fields():
             return False
         if not self._validate_ports():
+            return False
+        if not self._validate_credential_validity():
             return False
         logger.info("Configuration validation successful")
         return True

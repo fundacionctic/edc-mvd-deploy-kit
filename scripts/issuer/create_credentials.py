@@ -7,6 +7,10 @@ Credential Types:
     - MembershipCredential: Proves dataspace membership (REQUIRED for MVD)
     - DataProcessorCredential: Attests to data processing capabilities (REQUIRED for MVD)
 
+Configuration:
+    - Credential validity period is configurable via ISSUER_CREDENTIAL_VALIDITY_SECONDS
+    - Default: 15552000 seconds (180 days)
+
 API Endpoint:
     POST /api/admin/v1alpha/participants/{issuer-context-id}/credentialdefinitions
 """
@@ -51,6 +55,7 @@ def create_credential_definition(
         "mappings": mappings,
         "rules": rules or [],
         "format": CREDENTIAL_FORMAT_JWT,
+        "validity": config.credential_validity_seconds,
     }
 
     logger.info(f"Creating credential definition: {credential_def_id}")
