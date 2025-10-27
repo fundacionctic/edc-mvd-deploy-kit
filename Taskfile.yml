@@ -207,3 +207,12 @@ tasks:
         nicolaka/netshoot
         ngrep -q -W byline port 80 or port 443 or port 7000 or port 7001 or port 7002 or port 7003 or port 7005
 
+  provider:list-vault-secrets:
+    desc: List all the secrets stored in the provider's Vault
+    vars:
+      VAULT_CONTAINER_NAME: mvd-provider-vault
+    cmds:
+      - >
+        docker exec {{.VAULT_CONTAINER_NAME}}
+        sh -c 'VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN={{.PROVIDER_VAULT_TOKEN}} vault kv list secret/'
+
