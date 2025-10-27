@@ -784,7 +784,7 @@ def retrieve_edr(config, transfer_id: str) -> Optional[Dict]:
     """
     Retrieve Endpoint Data Reference (EDR) for transfer.
 
-    Following E2E_TEST_GUIDE.md Step 4.1: Retrieve EDR (Option A: V1 API)
+    Following E2E_TEST_GUIDE.md Step 4.1: Retrieve EDR (using V3 API)
 
     Args:
         config: Configuration object
@@ -795,23 +795,18 @@ def retrieve_edr(config, transfer_id: str) -> Optional[Dict]:
     """
     logger.info("Retrieving EDR (Endpoint Data Reference)...")
 
-    # Use V1 API as recommended in E2E_TEST_GUIDE.md (Option A: simpler)
-    url = f"http://{config.provider_public_host}:{config.provider_cp_management_port}/api/management/v1/edrs?transferProcessId={transfer_id}"
+    # Use V3 API with correct endpoint format: /v3/edrs/{transferProcessId}/dataaddress
+    url = f"http://{config.provider_public_host}:{config.provider_cp_management_port}/api/management/v3/edrs/{transfer_id}/dataaddress"
     headers = config.get_management_headers()
 
     success, status_code, response = make_http_request(url, "GET", headers)
 
     if success and status_code == 200:
         try:
-            edrs = json.loads(response)
-            if isinstance(edrs, list) and len(edrs) > 0:
-                edr = edrs[0]
-                logger.info("✅ EDR retrieved successfully")
-                logger.debug(f"EDR: {json.dumps(edr, indent=2)}")
-                return edr
-            else:
-                logger.error("❌ No EDR found for transfer")
-                return None
+            edr = json.loads(response)
+            logger.info("✅ EDR retrieved successfully")
+            logger.debug(f"EDR: {json.dumps(edr, indent=2)}")
+            return edr
         except json.JSONDecodeError:
             logger.error("❌ Failed to parse EDR response")
             return None
@@ -824,7 +819,7 @@ def extract_edr_details(edr: Dict) -> Optional[Tuple[str, str]]:
     """
     Extract endpoint and auth code from EDR.
 
-    Following E2E_TEST_GUIDE.md EDR response format
+    Following EDC v3 API EDR response format
 
     Args:
         edr: EDR response
@@ -832,10 +827,10 @@ def extract_edr_details(edr: Dict) -> Optional[Tuple[str, str]]:
     Returns:
         Tuple of (endpoint, auth_code) or None on failure
     """
-    # EDR field names from E2E_TEST_GUIDE.md
-    endpoint = edr.get("edc:endpoint")
-    auth_code = edr.get("edc:authCode")
-    auth_key = edr.get("edc:authKey", "Authorization")
+    # EDR field names from v3 API response
+    endpoint = edr.get("endpoint") or edr.get("edc:endpoint")
+    auth_code = edr.get("authorization") or edr.get("edc:authCode")
+    auth_key = edr.get("authKey") or edr.get("edc:authKey") or "Authorization"
 
     if not endpoint or not auth_code:
         logger.error("❌ EDR missing required fields (endpoint or authCode)")
