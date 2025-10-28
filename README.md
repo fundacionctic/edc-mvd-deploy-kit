@@ -1,6 +1,6 @@
-# Eclipse EDC Minimum Viable Dataspace
+# EDC MVD Dataspace Kit
 
-A port of the Eclipse Dataspace Components (EDC) Minimum Viable Dataspace (MVD) based on Docker Compose instead of Kubernetes. This version has been deeply refactored to facilitate parameterization and expose deployments to the Internet.
+A parameterized deployment toolkit for Eclipse EDC dataspaces, evolved from the original MVD. Built with Docker Compose for simplified deployment, this kit enables configuration of dataspace participants and supports both local development and internet-exposed production environments.
 
 ## Overview
 
