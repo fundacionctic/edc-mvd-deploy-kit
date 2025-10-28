@@ -91,9 +91,6 @@ ENV_ISSUER_ADMIN_PORT = "ISSUER_ADMIN_PORT"
 ENV_ISSUER_DID_API_PORT = "ISSUER_DID_API_PORT"
 ENV_ISSUER_SUPERUSER_KEY = "ISSUER_SUPERUSER_KEY"
 
-# Key Files
-ENV_PROVIDER_PUBLIC_KEY_FILE = "PROVIDER_PUBLIC_KEY_FILE"
-ENV_PROVIDER_PRIVATE_KEY_FILE = "PROVIDER_PRIVATE_KEY_FILE"
 
 # ============================================================
 # DEFAULT VALUES
@@ -152,9 +149,6 @@ DEFAULT_ISSUER_ADMIN_PORT = "10013"
 DEFAULT_ISSUER_DID_API_PORT = "10016"  # Using built-in DID API, not NGINX
 DEFAULT_ISSUER_SUPERUSER_KEY = "c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo="
 
-# Key File Defaults
-DEFAULT_PROVIDER_PUBLIC_KEY_FILE = "assets/keys/provider_public.pem"
-DEFAULT_PROVIDER_PRIVATE_KEY_FILE = "assets/keys/provider_private.pem"
 
 # ============================================================
 # VALIDATION CONSTANTS
@@ -312,14 +306,6 @@ class Config:
         )
         self.issuer_superuser_key = self._get_env(
             ENV_ISSUER_SUPERUSER_KEY, DEFAULT_ISSUER_SUPERUSER_KEY
-        )
-
-        # Key Files
-        self.provider_public_key_file = self._get_env(
-            ENV_PROVIDER_PUBLIC_KEY_FILE, DEFAULT_PROVIDER_PUBLIC_KEY_FILE
-        )
-        self.provider_private_key_file = self._get_env(
-            ENV_PROVIDER_PRIVATE_KEY_FILE, DEFAULT_PROVIDER_PRIVATE_KEY_FILE
         )
 
         # Generate DIDs dynamically
@@ -482,44 +468,6 @@ class Config:
             "Content-Type": "application/json",
             "X-Api-Key": self.issuer_superuser_key,
         }
-
-    def read_public_key_pem(self) -> Optional[str]:
-        """
-        Read public key from PEM file.
-
-        Returns:
-            Public key in PEM format as string, or None if file not found
-        """
-        try:
-            with open(self.provider_public_key_file, "r") as f:
-                return f.read()
-        except FileNotFoundError:
-            logger.error(f"Public key file not found: {self.provider_public_key_file}")
-            logger.error("Run: python3 scripts/provider/generate_keys.py")
-            return None
-        except Exception as e:
-            logger.error(f"Error reading public key file: {e}")
-            return None
-
-    def read_private_key_pem(self) -> Optional[str]:
-        """
-        Read private key from PEM file.
-
-        Returns:
-            Private key in PEM format as string, or None if file not found
-        """
-        try:
-            with open(self.provider_private_key_file, "r") as f:
-                return f.read()
-        except FileNotFoundError:
-            logger.error(
-                f"Private key file not found: {self.provider_private_key_file}"
-            )
-            logger.error("Run: python3 scripts/provider/generate_keys.py")
-            return None
-        except Exception as e:
-            logger.error(f"Error reading private key file: {e}")
-            return None
 
     def get_health_urls(self) -> Dict[str, str]:
         """

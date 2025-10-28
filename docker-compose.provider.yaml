@@ -131,8 +131,6 @@ services:
       - "${PROVIDER_IH_DEBUG_PORT}:${PROVIDER_IH_DEBUG_PORT}" # Debug
     env_file:
       - ./config/provider-identityhub.env
-    volumes:
-      - ./assets/credentials:/etc/credentials:ro
     depends_on:
       provider-postgres:
         condition: service_healthy

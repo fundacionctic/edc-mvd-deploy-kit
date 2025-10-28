@@ -27,38 +27,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def setup_credential_mounting(config) -> bool:
-    """
-    Setup credential mounting configuration.
-
-    Args:
-        config: Configuration object
-
-    Returns:
-        True if successful, False otherwise
-    """
-    logger.info("Setting up credential mounting...")
-
-    # Ensure credentials directory exists
-    credentials_dir = "assets/credentials"
-    os.makedirs(credentials_dir, exist_ok=True)
-
-    # Check for existing credential files
-    credential_files = [f for f in os.listdir(credentials_dir) if f.endswith(".json")]
-
-    if not credential_files:
-        logger.info(
-            "No credential files found - credentials will be obtained from Issuer service later"
-        )
-        logger.info("✅ Credentials directory prepared for future credential storage")
-    else:
-        logger.info(f"✅ Found {len(credential_files)} credential files")
-        for cred_file in credential_files:
-            logger.debug(f"   - {cred_file}")
-
-    return True
-
-
 def setup_key_storage(config) -> bool:
     """
     Setup key storage in Vault.
@@ -177,14 +145,6 @@ def verify_identityhub_configuration(config) -> bool:
 
     logger.info(f"✅ Configuration file exists: {config_file}")
 
-    # Check credentials directory
-    credentials_dir = "assets/credentials"
-    if not os.path.exists(credentials_dir):
-        logger.error(f"❌ Credentials directory missing: {credentials_dir}")
-        return False
-
-    logger.info(f"✅ Credentials directory exists: {credentials_dir}")
-
     # Verify configuration values
     all_valid = True
 
@@ -226,7 +186,6 @@ def setup_identityhub(config) -> bool:
     logger.info("=" * 50)
 
     setup_steps = [
-        ("Credential Mounting", setup_credential_mounting),
         ("Key Storage", setup_key_storage),
         ("DID Configuration", setup_did_configuration),
         ("STS Configuration", setup_sts_configuration),

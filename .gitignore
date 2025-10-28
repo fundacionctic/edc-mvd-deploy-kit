@@ -59,25 +59,6 @@ deployment/provider/did.docker.json
 deployment/provider/participants.json
 config/provider-*.env
 
-# Generated DID registry
-assets/did-registry.json
-
-# Generated credentials and DIDs (never commit!)
-assets/credentials/*.json
-assets/credentials/*.did
-assets/credentials/*.vc
-assets/credentials/*.vp
-
-# Generated keys (never commit!)
-assets/keys/*.pem
-assets/keys/*.key
-assets/keys/*.crt
-assets/keys/*.p12
-assets/keys/*.jks
-
-# Generated participant files
-assets/participants/*.json
-assets/participants/*.did
 
 ## Python
 #########

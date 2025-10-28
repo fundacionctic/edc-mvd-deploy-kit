@@ -28,94 +28,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def setup_participant_registry(config) -> bool:
-    """
-    Setup participant registry configuration.
-
-    Args:
-        config: Configuration object
-
-    Returns:
-        True if successful, False otherwise
-    """
-    logger.info("Setting up participant registry...")
-
-    # Create participants.json file for the Control Plane
-    participants_data = {
-        "participants": [
-            {
-                "participantId": config.provider_did,
-                "url": f"http://{config.provider_public_host}:{config.provider_cp_protocol_port}/api/dsp",
-                "supportedProtocols": [
-                    {
-                        "protocolName": "dataspace-protocol-http",
-                        "protocolVersion": "0.8",
-                    }
-                ],
-            }
-        ]
-    }
-
-    # Ensure assets directory exists
-    participants_dir = "assets/participants"
-    os.makedirs(participants_dir, exist_ok=True)
-
-    # Write participants file
-    participants_file = os.path.join(participants_dir, "participants.json")
-
-    try:
-        with open(participants_file, "w") as f:
-            json.dump(participants_data, f, indent=2)
-
-        logger.info(f"✅ Participant registry created: {participants_file}")
-        return True
-
-    except Exception as e:
-        logger.error(f"❌ Failed to create participant registry: {e}")
-        return False
-
-
-def setup_did_resolution(config) -> bool:
-    """
-    Setup DID resolution configuration.
-
-    Args:
-        config: Configuration object
-
-    Returns:
-        True if successful, False otherwise
-    """
-    logger.info("Setting up DID resolution...")
-
-    # Create DID registry configuration
-    did_registry = {
-        "dids": [
-            {
-                "did": config.provider_did,
-                "url": f"http://{config.provider_public_host}:{config.provider_ih_did_port}/.well-known/did.json",
-            }
-        ]
-    }
-
-    # Ensure assets directory exists
-    assets_dir = "assets"
-    os.makedirs(assets_dir, exist_ok=True)
-
-    # Write DID registry file
-    did_registry_file = os.path.join(assets_dir, "did-registry.json")
-
-    try:
-        with open(did_registry_file, "w") as f:
-            json.dump(did_registry, f, indent=2)
-
-        logger.info(f"✅ DID registry created: {did_registry_file}")
-        return True
-
-    except Exception as e:
-        logger.error(f"❌ Failed to create DID registry: {e}")
-        return False
-
-
 def setup_sts_integration(config) -> bool:
     """
     Setup STS integration configuration.
@@ -159,8 +71,6 @@ def verify_configuration(config) -> bool:
 
     # Check required files
     required_files = [
-        "assets/participants/participants.json",
-        "assets/did-registry.json",
         "config/provider-controlplane.env",
     ]
 
@@ -211,8 +121,6 @@ def setup_controlplane(config) -> bool:
     logger.info("=" * 50)
 
     setup_steps = [
-        ("Participant Registry", setup_participant_registry),
-        ("DID Resolution", setup_did_resolution),
         ("STS Integration", setup_sts_integration),
     ]
 
