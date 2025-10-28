@@ -51,6 +51,17 @@ tasks:
       - "{{.MVD_SOURCE_DIR}}/**/*.java"
       - "{{.MVD_SOURCE_DIR}}/build.gradle.kts"
 
+  destroy:
+    desc: Remove and clean all files and containers
+    cmds:
+      - task: provider:clean
+      - task: issuer:clean
+      - cmd: rm {{.ROOT_DIR}}/config/*.env
+        ignore_error: true
+      - cmd: rm {{.ROOT_DIR}}/config/*.properties
+        ignore_error: true
+      - rm -fr {{.MVD_SOURCE_DIR}}
+
   # ============================================================
   # ISSUER SERVICE TASKS
   # ============================================================
