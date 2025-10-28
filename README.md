@@ -376,3 +376,178 @@ sequenceDiagram
   end
   Note over Script: ✓ Provider Deployment Complete
 ```
+
+## FAQs
+
+### How does the Provider interact with the Issuer Service during credential requests?
+
+The Provider deployment script **never directly contacts the Issuer Service**. Instead, the architecture follows this pattern:
+
+1. **Deployment Script → Provider Identity Hub**: The deployment script sends credential requests to the Provider's own Identity Hub using the Provider's superuser token (see Step 8 in the Provider sequence diagram at line 360).
+
+2. **Identity Hub → Issuer Service**: The Provider's Identity Hub then forwards the credential request to the configured Issuer Service (see the "IH ->> Issuer: Forward credential request" arrow in the sequence diagram).
+
+3. **Credential Delivery**: The Issuer Service processes the request and delivers credentials back to the Provider's Identity Hub, where they are stored.
+
+**Where is the Issuer configured?**
+
+The Issuer that the Identity Hub should use is configured in two places:
+
+1. **Credential Request Parameter**: When the deployment script requests credentials, it explicitly specifies which issuer to use via the `issuerDid` parameter:
+   - **File**: `scripts/provider/request_credentials.py:198`
+   - The `issuerDid` is constructed from the `ISSUER_PUBLIC_HOST` and `ISSUER_DID_API_PORT` environment variables
+
+2. **Trusted Issuers Configuration**: The Identity Hub and Control Plane must be configured to trust specific issuers:
+   - **File**: `config/trusted-issuers.properties.template:12`
+   - **Configuration**: `edc.iam.trusted-issuer.demoissuer.id=did:web:${ISSUER_PUBLIC_HOST}%3A${ISSUER_DID_API_PORT}`
+   - This tells the Provider which issuers to trust for credential verification
+
+**Key Environment Variables**:
+- `ISSUER_PUBLIC_HOST`: The public hostname/DNS of the Issuer Service
+- `ISSUER_DID_API_PORT`: The port where the Issuer's DID document is served (default: 10016)
+
+This architecture allows the Provider to operate independently while delegating credential issuance to a trusted external authority, following the separation of concerns principle in dataspace architectures.
+
+### What are Attestations and Credential Definitions, and how do they work together?
+
+Understanding these two concepts is key to understanding how the Issuer Service issues verifiable credentials:
+
+#### **Attestations: The Source of Truth**
+
+**What they are:**
+Attestations are **trusted sources of claims** about a participant. Think of them as "pre-verified evidence" that the Issuer can reference when creating credentials.
+
+**Real-world analogy:**
+- When you apply for a driver's license, the DMV checks their database to verify you passed your driving test
+- That database record is an attestation: a trusted source confirming "this person passed on this date"
+
+**In this codebase:**
+Attestations are database tables that store verified information about participants:
+
+1. **`membership_attestations` table** (`deployment/issuer/init-issuer-db.sql.template:32`)
+   - Stores: participant DID, membership type, start date
+   - Example: "Provider X joined the dataspace on 2023-01-01 as a Provider member"
+
+2. **`data_processor_attestations` table** (`deployment/issuer/init-issuer-db.sql.template:41`)
+   - Stores: participant DID, contract version, processing level
+   - Example: "Provider X is authorized for 'processing' level data access under contract v1.0.0"
+
+**How attestations are configured:**
+Each attestation needs an **Attestation Definition** that tells the Issuer how to retrieve the data (`scripts/issuer/create_attestations.py`):
+
+```python
+# Attestation Definition for Membership
+{
+    "id": "membership-attestation-db",
+    "attestationType": "database",
+    "configuration": {
+        "tableName": "membership_attestations",
+        "dataSourceName": "issuer-datasource",
+        "idColumn": "holder_id"  # Match by participant DID
+    }
+}
+```
+
+This says: "To get membership attestations, query the `membership_attestations` table where `holder_id` matches the participant's DID."
+
+#### **Credential Definitions: The Recipe for Credentials**
+
+**What they are:**
+Credential Definitions are **blueprints** that specify:
+- What type of credential to issue (e.g., "MembershipCredential")
+- Which attestations are required as input
+- How to transform attestation data into credential claims
+- How long the credential remains valid
+
+**Real-world analogy:**
+- A driver's license template that says: "To issue this license, check the driving test database (attestation), verify the person passed (rule), and print their name and test date on the license (mapping)"
+
+**In this codebase:**
+Two credential definitions are created (`scripts/issuer/create_credentials.py`):
+
+1. **MembershipCredential** (`scripts/issuer/create_credentials.py:74`)
+   ```python
+   {
+       "id": "membership-credential-def",
+       "credentialType": "MembershipCredential",
+       "attestations": ["membership-attestation-db"],  # Requires membership data
+       "mappings": [
+           # Transform attestation data into credential claims
+           {"input": "membership_type", "output": "credentialSubject.membershipType"},
+           {"input": "membership_start_date", "output": "credentialSubject.membershipStartDate"},
+           {"input": "holder_id", "output": "credentialSubject.id"}
+       ],
+       "format": "VC1_0_JWT",
+       "validity": 15552000  # 180 days in seconds
+   }
+   ```
+
+2. **DataProcessorCredential** (`scripts/issuer/create_credentials.py:98`)
+   - Similar structure, but uses `data_processor_attestations`
+   - Maps processing level and contract version into the credential
+
+#### **How They Work Together: The Complete Flow**
+
+Here's what happens when the Provider requests credentials during deployment:
+
+```mermaid
+sequenceDiagram
+    participant Script as Deployment Script
+    participant IH as Provider Identity Hub
+    participant Issuer as Issuer Service
+    participant DB as Attestation Database
+    
+    autonumber
+    Note over Script: Step 1: Request Credentials
+    Script->>IH: POST /api/identity/v1alpha/participants/{did}/credentials/request
+    Note right of Script: Body: {<br/>  "issuerDid": "did:web:host.docker.internal%3A10016",<br/>  "credentials": [<br/>    {"credentialType": "MembershipCredential"},<br/>    {"credentialType": "DataProcessorCredential"}<br/>  ]<br/>}
+    
+    Note over IH,Issuer: Step 2: Forward Request
+    IH->>Issuer: Forward credential request
+    
+    Note over Issuer: Step 3: Look Up Credential Definitions
+    Note right of Issuer: MembershipCredential → requires "membership-attestation-db"<br/>DataProcessorCredential → requires "data-processor-attestation-db"
+    
+    Note over Issuer,DB: Step 4: Collect Attestations
+    Issuer->>DB: SELECT * FROM membership_attestations<br/>WHERE holder_id = 'did:web:...:provider'
+    DB-->>Issuer: {<br/>  "membership_type": 2,<br/>  "holder_id": "did:web:...",<br/>  "membership_start_date": "2023-01-01T00:00:00Z"<br/>}
+    
+    Issuer->>DB: SELECT * FROM data_processor_attestations<br/>WHERE holder_id = 'did:web:...:provider'
+    DB-->>Issuer: {<br/>  "holder_id": "did:web:...",<br/>  "contract_version": "1.0.0",<br/>  "processing_level": "processing"<br/>}
+    
+    Note over Issuer: Step 5: Apply Mappings
+    Note right of Issuer: MembershipCredential:<br/>  attestation.membership_type → credentialSubject.membershipType<br/>  attestation.membership_start_date → credentialSubject.membershipStartDate<br/><br/>DataProcessorCredential:<br/>  attestation.processing_level → credentialSubject.level<br/>  attestation.contract_version → credentialSubject.contractVersion
+    
+    Note over Issuer,IH: Step 6: Sign and Issue Credentials
+    Issuer-->>IH: Signed credentials (JWT format)
+    Note left of Issuer: Signs with Issuer's private key<br/>Delivers to Provider Identity Hub
+    
+    IH-->>Script: 202 Accepted + Location header
+    Note left of IH: Credentials stored in Identity Hub
+```
+
+#### **Key Takeaways**
+
+1. **Separation of Concerns:**
+   - **Attestations** = "What we know to be true" (the data)
+   - **Credential Definitions** = "How to package that truth into a credential" (the template)
+
+2. **Flexibility:**
+   - The same attestation can be used by multiple credential definitions
+   - You can add new credential types without changing attestation data
+   - Attestations can come from different sources (database, APIs, other credentials)
+
+3. **Trust Model:**
+   - Attestations are controlled by the Issuer (stored in Issuer's database)
+   - Only the Issuer can modify attestation data
+   - Participants trust the Issuer to maintain accurate attestations
+
+4. **In This Codebase:**
+   - Attestation tables are seeded during Issuer deployment: `deployment/issuer/init-issuer-db.sql.template`
+   - Attestation Definitions are created: `scripts/issuer/create_attestations.py`
+   - Credential Definitions are created: `scripts/issuer/create_credentials.py`
+   - Credentials are requested: `scripts/provider/request_credentials.py`
+
+5. **Extensibility:**
+   - Beyond database attestations, EDC supports "presentation attestations" (require another credential as proof)
+   - Custom attestation types can be implemented (e.g., query external APIs, blockchain, etc.)
