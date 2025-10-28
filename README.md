@@ -1,22 +1,13 @@
 # Eclipse EDC Minimum Viable Dataspace
 
-A complete deployment system for Eclipse EDC (Eclipse Dataspace Connector) participants with integrated identity management, credential issuance, and policy enforcement.
+A port of the Eclipse Dataspace Components (EDC) Minimum Viable Dataspace (MVD) based on Docker Compose instead of Kubernetes. This version has been deeply refactored to facilitate parameterization and expose deployments to the Internet.
 
 ## Overview
 
-This repository provides production-ready deployments for:
+This repository provides deployments for:
 
 - **Provider Participant**: Data provider with Control Plane, Data Plane, and Identity Hub
 - **Issuer Service**: Verifiable credential issuance and attestation management
-- **Complete Dataspace Foundation**: Core components for data sharing with policy enforcement
-
-### Key Features
-
-- **Identity & Trust**: DID-based identity with verifiable credentials
-- **Policy Enforcement**: Credential-based access control policies
-- **Secure Communication**: TLS/HTTPS with cryptographic signatures
-- **Production Ready**: Comprehensive security, monitoring, and deployment automation
-- **Developer Friendly**: Local development with debugging support
 
 ## Quick Start
 
@@ -116,7 +107,7 @@ graph TB
 
 ### Environment Variables
 
-Key configuration in `.env` (example default configuration available in `.env.example`).
+Key configuration is stored in `.env` (example default configuration is available in `.env.example`).
 
 ## Deployment Components
 
@@ -126,7 +117,7 @@ Issues verifiable credentials for dataspace participants.
 
 **Credential Types:**
 - **MembershipCredential**: Proves dataspace membership
-- **DataProcessorCredential**: Attests data processing capabilities
+- **DataProcessorCredential**: Attests to data processing capabilities
 
 ### Provider Participant
 
