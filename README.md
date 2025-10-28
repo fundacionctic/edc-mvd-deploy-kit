@@ -60,43 +60,6 @@ task provider:deploy
 
 > **Note**: The Issuer Service must be running before deploying the Provider, as the Provider requests credentials during deployment.
 
-### 3. Verify Deployment
-
-```bash
-# Check service status
-task issuer:status
-docker compose -p mvds-provider ps
-
-# Verify Issuer health
-curl http://localhost:10010/api/check/health
-
-# Verify Management API (replace <API_KEY> with your PROVIDER_MANAGEMENT_API_KEY from .env)
-curl -H "X-Api-Key: <API_KEY>" http://localhost:8081/management/v3/assets
-```
-
-### Common Operations
-
-```bash
-# View service status
-task issuer:status
-docker compose -p mvds-provider ps
-
-# View logs
-docker compose -p mvds-issuer logs -f
-docker compose -p mvds-provider logs -f
-
-# Restart services
-task provider:restart
-
-# Stop services
-task issuer:down
-task provider:down
-
-# Clean up (removes all data)
-task issuer:clean
-task provider:clean
-```
-
 ## Architecture
 
 ```mermaid
@@ -153,52 +116,7 @@ graph TB
 
 ### Environment Variables
 
-Key configuration in `.env`:
-
-```bash
-# Provider Identity
-PROVIDER_PUBLIC_HOST=host.docker.internal
-PROVIDER_PARTICIPANT_NAME=provider
-
-# Issuer Service
-ISSUER_PUBLIC_HOST=host.docker.internal
-# Note: ISSUER_DID is auto-generated from ISSUER_PUBLIC_HOST:ISSUER_DID_API_PORT
-
-# Security (⚠️ CHANGE FOR PRODUCTION!)
-PROVIDER_MANAGEMENT_API_KEY=<your-secure-api-key>
-ISSUER_SUPERUSER_KEY=<base64-username>.<base64-password>
-```
-
-### Port Allocation
-
-| Service      | Component          | Port  | Purpose                 |
-| ------------ | ------------------ | ----- | ----------------------- |
-| **Issuer**   | Main API           | 10010 | Health, status          |
-|              | STS                | 10011 | Secure Token Service    |
-|              | Issuance API       | 10012 | Credential issuance     |
-|              | Admin API          | 10013 | Credential management   |
-|              | Version API        | 10014 | Version/capabilities    |
-|              | Identity API       | 10015 | Identity service        |
-|              | DID API            | 10016 | DID document resolution |
-|              | Debug Port         | 1043  | Remote debugging        |
-| **Provider** | Control Plane Web  | 8080  | Health checks           |
-|              | Management API     | 8081  | Asset management        |
-|              | DSP Protocol       | 8082  | Inter-connector comm    |
-|              | Control API        | 8083  | Data Plane control      |
-|              | Catalog API        | 8084  | Catalog queries         |
-|              | Data Plane Web     | 8090  | Health checks           |
-|              | Data Plane Control | 8093  | Control Plane comm      |
-|              | Public API         | 11002 | Data access             |
-|              | Identity Hub Web   | 7000  | Health checks           |
-|              | Credentials API    | 7001  | Credential operations   |
-|              | STS API            | 7002  | Token service           |
-|              | DID API            | 7003  | DID document resolution |
-|              | Identity API       | 7005  | Identity operations     |
-|              | CP Debug Port      | 1044  | Control Plane debugging |
-|              | DP Debug Port      | 1045  | Data Plane debugging    |
-|              | IH Debug Port      | 1046  | Identity Hub debugging  |
-
-
+Key configuration in `.env` (example default configuration available in `.env.example`).
 
 ## Deployment Components
 
@@ -219,186 +137,181 @@ Provides data assets with policy enforcement.
 - **Data Plane**: Secure data transfer
 - **Identity Hub**: Credential storage and validation
 
-## API Reference
+## Deployment Sequence
 
-### Management API
+### Issuer
 
-**Authentication**: API Key (`X-Api-Key` header)
-
-```bash
-# List assets
-curl -H "X-Api-Key: <API_KEY>" http://localhost:8081/management/v3/assets
-
-# Create asset
-curl -X POST -H "X-Api-Key: <API_KEY>" -H "Content-Type: application/json" \
-  http://localhost:8081/management/v3/assets \
-  -d '{
-    "@id": "sample-asset",
-    "properties": {"description": "Sample data"},
-    "dataAddress": {"type": "HttpData", "baseUrl": "https://api.example.com/data"}
-  }'
-
-# List policies
-curl -H "X-Api-Key: <API_KEY>" http://localhost:8081/management/v3/policydefinitions
-
-# List contracts
-curl -H "X-Api-Key: <API_KEY>" http://localhost:8081/management/v3/contractdefinitions
-```
-
-### Identity Hub API
-
-**Authentication**: API Key (`X-Api-Key` header)
-
-```bash
-# List credentials
-curl -H "X-Api-Key: <API_KEY>" \
-  "http://localhost:7001/api/identity/v1alpha/participants/did:web:host.docker.internal%3A7003:provider/credentials"
-
-# Request token
-curl -X POST http://localhost:7002/api/sts/token \
-  -H "Content-Type: application/json" \
-  -d '{"audience": "did:web:consumer.example.com", "scope": "read"}'
-```
-
-### Issuer Admin API
-
-**Authentication**: Superuser Key (`X-Api-Key` header)
-
-```bash
-# List participants (replace <ISSUER_DID_ENCODED> with base64-encoded issuer DID)
-curl -H "X-Api-Key: <SUPERUSER_KEY>" \
-  "http://localhost:10013/api/admin/v1alpha/participants/<ISSUER_DID_ENCODED>/holders"
-
-# List credential definitions
-curl -H "X-Api-Key: <SUPERUSER_KEY>" \
-  "http://localhost:10013/api/admin/v1alpha/participants/<ISSUER_DID_ENCODED>/credentialdefinitions"
-```
-
-## Security
-
-### Production Security Checklist
-
-**⚠️ CRITICAL: Change all default credentials before production!**
-
-- [ ] **API Keys**: Generate strong random keys
-  ```bash
-  PROVIDER_MANAGEMENT_API_KEY=$(openssl rand -base64 32)
-  ISSUER_SUPERUSER_KEY=$(echo -n "admin" | base64).$(openssl rand -base64 24)
-  ```
-
-- [ ] **Database Passwords**: Use strong passwords
-  ```bash
-  PROVIDER_DB_PASSWORD=$(openssl rand -base64 24)
-  ISSUER_DB_PASSWORD=$(openssl rand -base64 24)
-  ```
-
-- [ ] **Vault Tokens**: Never use `root` in production
-- [ ] **TLS/HTTPS**: Enable for production (set appropriate environment variables in config)
-- [ ] **Network Security**: Restrict port access, use VPN for management
-- [ ] **Key Management**: Use HSM for production keys
-- [ ] **Monitoring**: Enable audit logging and monitoring
-
-### Authentication Methods
-
-1. **API Key Authentication**: Management and Catalog APIs
-2. **Bearer Token Authentication**: DSP Protocol and Public APIs  
-3. **Credential-Based Authorization**: Policy enforcement using verifiable credentials
-
-## Troubleshooting
-
-### Quick Diagnostics
-
-```bash
-# Check service status
-task issuer:status
-docker compose -p mvds-provider ps
-
-# View logs
-docker compose -p mvds-issuer logs -f
-docker compose -p mvds-provider logs -f
-
-# Check specific service
-docker logs mvd-issuer-service
-docker logs mvd-provider-controlplane
-docker logs mvd-provider-dataplane
-docker logs mvd-provider-identityhub
-
-# Test connectivity
-curl http://localhost:8080/api/check/health  # Provider Control Plane
-curl http://localhost:8090/api/check/health  # Provider Data Plane
-curl http://localhost:7000/api/check/health  # Provider Identity Hub
-curl http://localhost:10010/api/check/health # Issuer Service
-```
-
-## Development
-
-### Development Setup
-
-Debug ports are configured in `.env` and exposed automatically:
-- Issuer Service: Port 1043
-- Provider Control Plane: Port 1044
-- Provider Data Plane: Port 1045
-- Provider Identity Hub: Port 1046
-
-Connect your IDE debugger to these ports after starting services with `task issuer:up` or `task provider:up`.
-
-### Building from Source
-
-```bash
-# Setup/update source code
-task setup-source
-
-# Build EDC components and Docker images
-task build
-```
-
-## Production Deployment
-
-### Environment-Specific Configuration
-
-**Development:**
-```bash
-PROVIDER_PUBLIC_HOST=host.docker.internal
-```
-
-**Production:**
-```bash
-PROVIDER_PUBLIC_HOST=provider.yourdomain.com
-# Use strong authentication credentials (see Security section)
-```
-
-### Monitoring
-
-```bash
-# Health monitoring script
-while true; do
-  curl -f http://localhost:8080/api/check/health || echo "$(date): Provider CP health check failed"
-  curl -f http://localhost:8090/api/check/health || echo "$(date): Provider DP health check failed"
-  curl -f http://localhost:7000/api/check/health || echo "$(date): Provider IH health check failed"
-  curl -f http://localhost:10010/api/check/health || echo "$(date): Issuer health check failed"
-  sleep 60
-done
-```
-
-## Support
-
-### Getting Help
-
-1. **Documentation**: Check troubleshooting section above
-2. **Logs**: Collect logs using Docker Compose commands:
-   - `docker compose -p mvds-issuer logs > issuer-logs.txt`
-   - `docker compose -p mvds-provider logs > provider-logs.txt`
-3. **GitHub Issues**: Search existing issues or create new one
-4. **Community**: EDC community forums and discussions
-
-### Issue Reporting
-
-Include in your issue report:
-- Environment details (OS, Docker version)
-- Steps to reproduce
-- Complete error logs
-- Configuration (sanitized - remove secrets from `.env` file)
-
+```mermaid
 ---
+config:
+  theme: redux-color
+---
+sequenceDiagram
+  participant Script as Deployment Script
+  participant Issuer as Issuer Service
+  participant IH as Identity Hub
+  participant Postgres as PostgreSQL DB
+  autonumber
+  Note over Script: TASK: issuer:generate-config
+  Script ->> Script: envsubst config templates<br/>(no HTTP requests)
+  Note over Script: TASK: issuer:up
+  Script ->> Script: generate_init_sql.py<br/>(SQL seed generation)
+  Script ->> Postgres: Initialize with SQL seed
+  Script ->> Script: docker-compose up -d --wait
+  Note over Script: TASK: issuer:seed
+  rect rgb(230, 245, 255)
+    Note over Script, Issuer: Step 1: Health Check
+    Script ->> Issuer: GET /api/check/health
+    Note right of Script: Auth: None
+    Issuer -->> Script: 200 OK
+  end
+  rect rgb(255, 245, 230)
+    Note over Script, IH: Step 2: Register Issuer Participant
+    Script ->> IH: POST /api/identity/v1alpha/participants/
+    Note right of Script: Auth: x-api-key (superuser)<br/>Body: {<br/>  participantId: issuer_did,<br/>  roles: ["admin"],<br/>  serviceEndpoints: [IssuerService],<br/>  key: {algorithm: "EdDSA"}<br/>}
+    IH -->> Script: 201 Created / 409 Conflict
+  end
+  rect rgb(240, 255, 240)
+    Note over Script, Issuer: Step 3: Create Participant Holders
+    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/holders
+    Note right of Script: Auth: X-Api-Key (superuser)<br/>Participant: Consumer Corp
+    Issuer -->> Script: 201 Created / 409 Conflict
+    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/holders
+    Note right of Script: Auth: X-Api-Key (superuser)<br/>Participant: Provider Corp
+    Issuer -->> Script: 201 Created / 409 Conflict
+  end
+  rect rgb(255, 240, 245)
+    Note over Script, Issuer: Step 4: Create Attestation Definitions
+    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/attestations
+    Note right of Script: Auth: X-Api-Key (superuser)<br/>Type: database<br/>Table: membership_attestations
+    Issuer -->> Script: 201 Created / 409 Conflict
+    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/attestations
+    Note right of Script: Auth: X-Api-Key (superuser)<br/>Type: database<br/>Table: data_processor_attestations
+    Issuer -->> Script: 201 Created / 409 Conflict
+  end
+  rect rgb(245, 240, 255)
+    Note over Script, Issuer: Step 5: Create Credential Definitions
+    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/credentialdefinitions
+    Note right of Script: Auth: X-Api-Key (superuser)<br/>Type: MembershipCredential<br/>Format: VC1_0_JWT<br/>Validity: 15552000s (180 days)
+    Issuer -->> Script: 201 Created / 409 Conflict
+    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/credentialdefinitions
+    Note right of Script: Auth: X-Api-Key (superuser)<br/>Type: DataProcessorCredential<br/>Format: VC1_0_JWT<br/>Validity: 15552000s (180 days)
+    Issuer -->> Script: 201 Created / 409 Conflict
+  end
+  Note over Script: ✓ Issuer Deployment Complete
+```
 
-This deployment system provides a complete, production-ready Eclipse EDC dataspace with integrated identity management and credential-based policy enforcement.
+### Provider
+
+```mermaid
+sequenceDiagram
+  participant Script as Deployment Script
+  participant CP as Control Plane
+  participant DP as Data Plane
+  participant IH as Provider Identity Hub
+  participant Vault as Vault
+  participant Issuer as Issuer Service
+  autonumber
+  Note over Script: TASK: provider:up
+  rect rgb(250, 250, 250)
+    Note over Script: Dependency: build
+    Script ->> Script: ./gradlew clean build
+    Script ->> Script: ./gradlew dockerize
+  end
+  rect rgb(245, 250, 255)
+    Note over Script: Dependency: provider:configure
+    Script ->> Script: provider:generate-config (envsubst)
+    Script ->> Script: provider:validate-config
+    Script ->> Script: configure_controlplane.py
+    Script ->> Script: configure_dataplane.py
+    Script ->> Script: configure_identityhub.py
+  end
+  Script ->> Script: docker-compose up -d --wait
+  Note over Script: TASK: provider:seed
+  rect rgb(230, 245, 255)
+    Note over Script, CP: Step 1: Health Check
+    Script ->> CP: GET /api/check/health
+    Note right of Script: Auth: None
+    CP -->> Script: 200 OK
+  end
+  rect rgb(255, 245, 230)
+    Note over Script, IH: Step 2: Register Provider Participant
+    Script ->> IH: POST /api/identity/v1alpha/participants/
+    Note right of Script: Auth: x-api-key (superuser)<br/>participantId: provider_did<br/>roles: []<br/>serviceEndpoints: CredentialService + ProtocolEndpoint<br/>key.algorithm: EC
+    IH -->> Script: 201 Created + clientSecret
+    Note left of IH: Returns STS client secret
+  end
+  rect rgb(255, 250, 240)
+    Note over Script, Vault: Step 3: Store STS Client Secret
+    Script ->> CP: POST /api/management/v3/secrets
+    Note right of Script: Auth: x-api-key (management)<br/>@id: provider-sts-client-secret<br/>value: clientSecret from Step 2
+    CP ->> Vault: Store secret in Vault
+    CP -->> Script: 201 Created / 409 Conflict
+  end
+  rect rgb(240, 255, 240)
+    Note over Script, CP: Step 4: Create Data Assets
+    Script ->> CP: POST /api/management/v3/assets
+    Note right of Script: Auth: x-api-key (management)<br/>@id: asset-1<br/>type: HttpData<br/>baseUrl: jsonplaceholder
+    CP -->> Script: 200 OK / 409 Conflict
+    Script ->> CP: POST /api/management/v3/assets
+    Note right of Script: Auth: x-api-key (management)<br/>@id: asset-2<br/>type: HttpData<br/>baseUrl: jsonplaceholder
+    CP -->> Script: 200 OK / 409 Conflict
+  end
+  rect rgb(255, 240, 245)
+    Note over Script, CP: Step 5: Create Policy Definitions
+    Script ->> CP: POST /api/management/v3/policydefinitions
+    Note right of Script: Auth: x-api-key (management)<br/>@id: allow-all<br/>permission.action: use
+    CP -->> Script: 200 OK / 409 Conflict
+    Script ->> CP: POST /api/management/v3/policydefinitions
+    Note right of Script: Auth: x-api-key (management)<br/>@id: require-membership<br/>constraint: MembershipCredential eq active
+    CP -->> Script: 200 OK / 409 Conflict
+    Script ->> CP: POST /api/management/v3/policydefinitions
+    Note right of Script: Auth: x-api-key (management)<br/>@id: require-dataprocessor<br/>constraint: DataAccess.level eq processing
+    CP -->> Script: 200 OK / 409 Conflict
+    Script ->> CP: POST /api/management/v3/policydefinitions
+    Note right of Script: Auth: x-api-key (management)<br/>@id: require-sensitive<br/>constraint: DataAccess.level eq sensitive
+    CP -->> Script: 200 OK / 409 Conflict
+  end
+  rect rgb(245, 240, 255)
+    Note over Script, CP: Step 6: Create Contract Definitions
+    Script ->> CP: POST /api/management/v3/contractdefinitions
+    Note right of Script: Auth: x-api-key (management)<br/>@id: simple-access-def<br/>accessPolicyId: allow-all<br/>contractPolicyId: allow-all<br/>assetSelector: asset-1
+    CP -->> Script: 200 OK / 409 Conflict
+    Script ->> CP: POST /api/management/v3/contractdefinitions
+    Note right of Script: Auth: x-api-key (management)<br/>@id: sensitive-only-def<br/>accessPolicyId: require-membership<br/>contractPolicyId: require-sensitive<br/>assetSelector: asset-2
+    CP -->> Script: 200 OK / 409 Conflict
+  end
+  rect rgb(250, 245, 245)
+    Note over Script, CP: Step 7: Verify Seeded Data
+    Script ->> CP: POST /api/management/v3/assets/request
+    Note right of Script: Auth: x-api-key (management)<br/>body: QuerySpec
+    CP -->> Script: 200 OK (array of assets)
+    Script ->> CP: POST /api/management/v3/policydefinitions/request
+    Note right of Script: Auth: x-api-key (management)<br/>body: QuerySpec
+    CP -->> Script: 200 OK (array of policies)
+    Script ->> CP: POST /api/management/v3/contractdefinitions/request
+    Note right of Script: Auth: x-api-key (management)<br/>body: QuerySpec
+    CP -->> Script: 200 OK (array of contracts)
+  end
+  Note over Script: TASK: provider:request-credentials
+  rect rgb(240, 245, 255)
+    Note over Script, Issuer: Step 8: Request Verifiable Credentials
+    Script ->> IH: POST /api/identity/v1alpha/participants/{base64_did}/credentials/request
+    Note right of Script: Auth: x-api-key (superuser)<br/>issuerDid: issuer_did<br/>credentials: MembershipCredential + DataProcessorCredential
+    IH ->> Issuer: Forward credential request
+    IH -->> Script: 202 Accepted<br/>Location header with status URL
+  end
+  rect rgb(230, 240, 255)
+    Note over Script, IH: Step 9: Poll Credential Status
+    loop Poll until ISSUED (max 30 attempts)
+      Script ->> IH: GET /api/identity{location_path}
+      Note right of Script: Auth: x-api-key (superuser)
+      IH -->> Script: 200 OK (status: PENDING)
+    end
+    Script ->> IH: GET /api/identity{location_path}
+    Note right of Script: Auth: x-api-key (superuser)
+    IH -->> Script: 200 OK (status: ISSUED)
+    Note left of IH: Credentials stored<br/>in Identity Hub
+  end
+  Note over Script: ✓ Provider Deployment Complete
+```
