@@ -1,6 +1,6 @@
 # EDC MVD Dataspace Kit
 
-A parameterized deployment toolkit for Eclipse EDC dataspaces, evolved from the original MVD. Built with Docker Compose for simplified deployment, this kit enables configuration of dataspace participants and supports both local development and internet-exposed production environments.
+A parameterized deployment toolkit for Eclipse EDC dataspaces, evolved from the [original Eclipse Dataspace Components (EDC) MVD](https://github.com/eclipse-edc/MinimumViableDataspace). Built with Docker Compose for simplified deployment, this kit enables configuration of dataspace participants and supports both local development and internet-exposed production environments.
 
 ## Overview
 
