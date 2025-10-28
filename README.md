@@ -51,6 +51,79 @@ task provider:deploy
 
 > **Note**: The Issuer Service must be running before deploying the Provider, as the Provider requests credentials during deployment.
 
+## Deployment Scenarios
+
+This codebase supports flexible deployment configurations to align with dataspace principles, where participants can share infrastructure or deploy independently.
+
+### Scenario A: Full Local Deployment (Default)
+
+**Use Case**: Local development, testing, and self-contained demos
+
+**Description**: Deploy both Issuer and Provider services locally using Docker Compose.
+
+```bash
+# 1. Configure .env
+cp .env.example .env
+# Keep default: DEPLOY_ISSUER=true
+# Keep default: ISSUER_PUBLIC_HOST=host.docker.internal
+
+# 2. Build Docker images
+task build
+
+# 3. Deploy Issuer Service
+task issuer:deploy
+
+# 4. Deploy Provider Participant
+task provider:deploy
+```
+
+**Result**: Both services run locally, Issuer issues credentials to Provider.
+
+---
+
+### Scenario B: Provider with External Issuer (Production)
+
+Deploy Provider only, connect to external Issuer Service.
+
+**Configuration**:
+```bash
+cp .env.example .env
+# Edit .env:
+DEPLOY_ISSUER=false
+ISSUER_PUBLIC_HOST=issuer.dataspace.example.com
+ISSUER_SUPERUSER_KEY=<credentials-from-issuer-admin>
+```
+
+**Deployment**:
+```bash
+task build
+task provider:deploy
+```
+
+---
+
+### Scenario C: Issuer Only (Infrastructure Providers)
+
+Deploy Issuer Service for multiple participants.
+
+```bash
+cp .env.example .env
+# Set: ISSUER_PUBLIC_HOST=issuer.dataspace.example.com
+task build
+task issuer:deploy
+# Expose ports: 10010, 10012, 10013, 10016
+```
+
+### Deployment Scenarios
+
+| Scenario               | Components        | Use Case                 | Network              |
+| ---------------------- | ----------------- | ------------------------ | -------------------- |
+| **A: Complete Local**  | Issuer + Provider | Development/Testing      | Local only           |
+| **B: External Issuer** | Provider only     | Production participants  | Remote Issuer access |
+| **C: Issuer Only**     | Issuer only       | Infrastructure providers | Public accessibility |
+
+---
+
 ## Architecture
 
 ```mermaid

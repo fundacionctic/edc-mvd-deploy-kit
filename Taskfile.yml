@@ -65,6 +65,9 @@ tasks:
   # ============================================================
   # ISSUER SERVICE TASKS
   # ============================================================
+  # These tasks deploy and manage a local Issuer Service.
+  # Optional: Skip these if using an external Issuer (DEPLOY_ISSUER=false)
+  # For external Issuer: Only configure ISSUER_PUBLIC_HOST and credentials in .env
 
   issuer:generate-config:
     desc: Generate configuration files for the issuer
@@ -178,7 +181,7 @@ tasks:
       - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/seed_participant.py all"
 
   provider:request-credentials:
-    desc: Request credentials from Issuer service
+    desc: Request credentials from Issuer service (local or remote based on ISSUER_PUBLIC_HOST)
     cmds:
       - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/request_credentials.py"
 
@@ -251,6 +254,15 @@ tasks:
   e2e:full-test:
     desc: Complete deployment and E2E test from scratch
     cmds:
-      - task: issuer:deploy
+      - |
+        if [ "${DEPLOY_ISSUER:-true}" = "true" ]; then
+          echo "🚀 Deploying local Issuer Service..."
+          task issuer:deploy
+        else
+          echo "⏩ Skipping Issuer deployment (DEPLOY_ISSUER=false)"
+          echo "   Using external Issuer at: ${ISSUER_PUBLIC_HOST}"
+        fi
+      - echo "🚀 Deploying Provider..."
       - task: provider:deploy
+      - echo "🧪 Running E2E tests..."
       - task: e2e:test

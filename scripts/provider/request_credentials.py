@@ -59,6 +59,46 @@ API_PATH_IDENTITY_PARTICIPANTS = "/api/identity/v1alpha/participants/"
 API_PATH_CREDENTIALS_REQUEST = "/credentials/request"
 
 
+def check_issuer_connectivity(config) -> bool:
+    """
+    Verify Issuer Service is reachable before attempting credential requests.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        True if Issuer is reachable, False otherwise
+    """
+    # Build Issuer HTTP URL from host and port
+    issuer_http_url = f"http://{config.issuer_public_host}:{config.issuer_http_port}"
+    health_url = f"{issuer_http_url}/health"
+
+    logger.debug(f"Checking Issuer connectivity at: {health_url}")
+
+    try:
+        request = urllib.request.Request(health_url, method="GET")
+        with urllib.request.urlopen(request, timeout=5) as response:
+            if response.status == 200:
+                logger.info("✅ Issuer Service is reachable")
+                return True
+            else:
+                logger.warning(f"⚠️  Issuer returned unexpected status: {response.status}")
+                return False
+    except urllib.error.HTTPError as e:
+        # Some services return 404 for /health if not implemented, but that means it's reachable
+        if e.code in [404, 405]:
+            logger.info("✅ Issuer Service is reachable (no health endpoint)")
+            return True
+        logger.warning(f"⚠️  HTTP {e.code} error checking Issuer connectivity")
+        return False
+    except urllib.error.URLError as e:
+        logger.warning(f"⚠️  Cannot reach Issuer Service: {e.reason}")
+        return False
+    except Exception as e:
+        logger.warning(f"⚠️  Unexpected error checking Issuer connectivity: {e}")
+        return False
+
+
 def poll_credential_status(config, status_url: str) -> bool:
     """
     Poll credential request status until issued or timeout.
@@ -230,6 +270,9 @@ def main():
         logger.error("Failed to load configuration")
         return 1
 
+    # Check if Issuer deployment is disabled
+    deploy_issuer = os.getenv("DEPLOY_ISSUER", "true").lower() == "true"
+
     logger.info(
         "=" * 60 + "\n" +
         "Request Credentials from Issuer Service\n" +
@@ -240,6 +283,44 @@ def main():
         "  ✓ Provider seeded as holder in Issuer database\n"
     )
 
+    # Check Issuer connectivity
+    if not check_issuer_connectivity(config):
+        if not deploy_issuer:
+            # External Issuer is configured but not reachable
+            logger.error(
+                "\n" + "=" * 60 + "\n" +
+                "❌ External Issuer Not Reachable\n" +
+                "=" * 60 + "\n\n" +
+                f"Configuration:\n"
+                f"  DEPLOY_ISSUER: false (using external Issuer)\n"
+                f"  ISSUER_PUBLIC_HOST: {config.issuer_public_host}\n"
+                f"  Issuer URL: http://{config.issuer_public_host}:{config.issuer_http_port}\n\n"
+                f"The external Issuer Service is not reachable.\n\n"
+                f"Troubleshooting:\n"
+                f"  1. Verify the external Issuer is running and accessible\n"
+                f"  2. Check ISSUER_PUBLIC_HOST in .env points to the correct host\n"
+                f"  3. Verify network connectivity to the Issuer Service\n"
+                f"  4. Check firewall rules allow access to Issuer ports\n"
+                f"  5. Ensure Issuer ports in .env match the external service\n"
+            )
+            return 1
+        else:
+            # Local Issuer should be running but is not reachable
+            logger.error(
+                "\n" + "=" * 60 + "\n" +
+                "❌ Local Issuer Not Reachable\n" +
+                "=" * 60 + "\n\n" +
+                f"Configuration:\n"
+                f"  DEPLOY_ISSUER: true (using local Issuer)\n"
+                f"  Issuer URL: http://{config.issuer_public_host}:{config.issuer_http_port}\n\n"
+                f"The local Issuer Service is not reachable.\n\n"
+                f"Troubleshooting:\n"
+                f"  1. Verify Issuer is running: task issuer:status\n"
+                f"  2. Check Issuer logs: docker logs mvd-issuer-service\n"
+                f"  3. Restart Issuer if needed: task issuer:deploy\n"
+            )
+            return 1
+
     # Get participant DID from configuration
     participant_did = config.provider_did
 
@@ -249,7 +330,12 @@ def main():
     encoded_issuer_host = urllib.parse.quote(issuer_host_with_port, safe="")
     issuer_did = f"did:web:{encoded_issuer_host}"
 
-    logger.info(f"Provider DID: {participant_did}\n" f"Issuer DID: {issuer_did}\n")
+    issuer_type = "External" if not deploy_issuer else "Local"
+    logger.info(
+        f"Issuer Type: {issuer_type}\n"
+        f"Provider DID: {participant_did}\n"
+        f"Issuer DID: {issuer_did}\n"
+    )
 
     # Request credentials from issuer
     credential_types = [CREDENTIAL_TYPE_MEMBERSHIP, CREDENTIAL_TYPE_DATA_PROCESSOR]
