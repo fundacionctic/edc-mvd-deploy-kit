@@ -174,9 +174,6 @@ sequenceDiagram
   rect rgb(240, 255, 240)
     Note over Script, Issuer: Step 3: Create Participant Holders
     Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/holders
-    Note right of Script: Auth: X-Api-Key (superuser)<br/>Participant: Consumer Corp
-    Issuer -->> Script: 201 Created / 409 Conflict
-    Script ->> Issuer: POST /api/admin/v1alpha/participants/{context}/holders
     Note right of Script: Auth: X-Api-Key (superuser)<br/>Participant: Provider Corp
     Issuer -->> Script: 201 Created / 409 Conflict
   end

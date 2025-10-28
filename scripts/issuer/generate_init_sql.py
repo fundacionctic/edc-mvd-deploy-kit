@@ -57,11 +57,7 @@ def generate_init_sql(config) -> str:
         template_content = f.read()
 
     # Substitute variables
-    sql_content = template_content.replace("${CONSUMER_DID}", config.consumer_did)
-    sql_content = sql_content.replace("${PROVIDER_DID}", config.provider_did)
-    sql_content = sql_content.replace(
-        "${CONSUMER_DID_SERVER_PORT}", config.consumer_did_server_port
-    )
+    sql_content = template_content.replace("${PROVIDER_DID}", config.provider_did)
     sql_content = sql_content.replace(
         "${PROVIDER_IH_DID_PORT}", config.provider_ih_did_port
     )
@@ -112,7 +108,6 @@ def main():
         return 1
 
     logger.info("Configuration loaded successfully")
-    logger.info(f"Consumer DID: {config.consumer_did}")
     logger.info(f"Provider DID: {config.provider_did}")
     logger.info("")
 

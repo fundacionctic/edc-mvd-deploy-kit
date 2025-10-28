@@ -8,7 +8,7 @@ Seeding Sequence:
     1. Wait for Issuer Service health
     2. Check DID document server
     3. Register Issuer as participant in its own Identity Hub
-    4. Create participant holders (Consumer, Provider)
+    4. Create participant holders (Provider)
     5. Create attestation definitions (Database attestations)
     6. Create credential definitions (MembershipCredential, DataProcessorCredential)
 

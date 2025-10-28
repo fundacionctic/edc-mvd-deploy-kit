@@ -5,7 +5,6 @@ This script registers participants (holders) in the Issuer Service,
 enabling them to request and receive verifiable credentials.
 
 Participants:
-    - Consumer: DID generated from CONSUMER_DID_SERVER_PORT (default: 7083)
     - Provider: DID generated from PROVIDER_IH_DID_PORT (default: 7003)
 
 API Endpoint:
@@ -51,7 +50,6 @@ def create_participant_holder(
 def create_all_participants(cfg: Config) -> bool:
     """Create all participant holders in the Issuer Service."""
     participants = [
-        {"did": cfg.consumer_did, "name": "Consumer Corp"},
         {"did": cfg.provider_did, "name": "Provider Corp"},
     ]
 

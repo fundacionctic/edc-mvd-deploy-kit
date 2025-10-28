@@ -4,7 +4,7 @@
 -- This file initializes the Issuer Service PostgreSQL database with:
 -- 1. Database and user creation
 -- 2. Attestation tables (membership_attestations, data_processor_attestations)
--- 3. Seed data for participants (Consumer, Provider)
+-- 3. Seed data for participants (Provider)
 --
 -- IMPORTANT: This file is generated from init-issuer-db.sql.template
 -- DO NOT EDIT init-issuer-db.sql directly - changes will be overwritten
@@ -57,37 +57,13 @@ CREATE TABLE IF NOT EXISTS data_processor_attestations (
 -- 4. Format: did:web:host.docker.internal%3A<port>:<participant-name>
 --
 -- Participant Types:
---   membership_type: 1 = Consumer, 2 = Provider
+--   membership_type: 2 = Provider
 --   processing_level: 'processing' = standard, 'sensitive' = high security
 --
 -- DID Format Examples:
---   Docker Compose: did:web:host.docker.internal%3A7083:consumer
---   Kubernetes:     did:web:consumer-identityhub%3A7083:consumer
---   Production:     did:web:consumer.yourdomain.com:consumer
-
--- ============================================================
--- CONSUMER PARTICIPANT
--- ============================================================
--- DID: ${CONSUMER_DID}
--- Port: ${CONSUMER_DID_SERVER_PORT} (IdentityHub DID endpoint)
--- Membership Type: 1 (Consumer)
-
-INSERT INTO membership_attestations (membership_type, holder_id, membership_start_date)
-VALUES (
-    1,
-    '${CONSUMER_DID}',
-    '2023-01-01T00:00:00Z'
-)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO data_processor_attestations (holder_id, contract_version, processing_level, attestation_date)
-VALUES (
-    '${CONSUMER_DID}',
-    '1.0.0',
-    'processing',
-    '2023-01-01T00:00:00Z'
-)
-ON CONFLICT DO NOTHING;
+--   Docker Compose: did:web:host.docker.internal%3A7003:provider
+--   Kubernetes:     did:web:provider-identityhub%3A7003:provider
+--   Production:     did:web:provider.yourdomain.com:provider
 
 -- ============================================================
 -- PROVIDER PARTICIPANT

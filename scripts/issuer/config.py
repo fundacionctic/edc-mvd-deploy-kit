@@ -12,7 +12,6 @@ Environment Variables:
     ISSUER_PUBLIC_HOST: Public hostname (default: host.docker.internal)
     ISSUER_DID_API_PORT: DID API port (default: 10016)
     ISSUER_SUPERUSER_KEY: Base64-encoded admin API key
-    CONSUMER_DID_SERVER_PORT: Consumer DID server port (default: 7083)
     PROVIDER_IH_DID_PORT: Provider IdentityHub DID API port (default: 7003)
 """
 
@@ -40,7 +39,6 @@ ENV_ISSUER_PUBLIC_HOST = "ISSUER_PUBLIC_HOST"
 ENV_ISSUER_DID_API_PORT = "ISSUER_DID_API_PORT"
 ENV_ISSUER_SUPERUSER_KEY = "ISSUER_SUPERUSER_KEY"
 ENV_ISSUER_HTTP_PORT = "ISSUER_HTTP_PORT"
-ENV_CONSUMER_DID_SERVER_PORT = "CONSUMER_DID_SERVER_PORT"
 ENV_PROVIDER_IH_DID_PORT = "PROVIDER_IH_DID_PORT"
 ENV_ISSUER_CREDENTIAL_VALIDITY_SECONDS = "ISSUER_CREDENTIAL_VALIDITY_SECONDS"
 
@@ -52,7 +50,6 @@ DEFAULT_ISSUER_HTTP_PORT = "10010"
 DEFAULT_ISSUER_PUBLIC_HOST = "host.docker.internal"
 DEFAULT_ISSUER_DID_API_PORT = "10016"
 DEFAULT_ISSUER_SUPERUSER_KEY = "c3VwZXItdXNlcg==.c3VwZXItc2VjcmV0LWtleQo="
-DEFAULT_CONSUMER_DID_SERVER_PORT = "7083"
 DEFAULT_PROVIDER_IH_DID_PORT = "7003"
 DEFAULT_ISSUER_CREDENTIAL_VALIDITY_SECONDS = "15552000"  # 180 days
 
@@ -129,16 +126,10 @@ class Config:
         )
         self.issuer_did = f"did:web:{encoded_host}"
 
-        self.consumer_did_server_port = self._get_env(
-            ENV_CONSUMER_DID_SERVER_PORT, DEFAULT_CONSUMER_DID_SERVER_PORT
-        )
         self.provider_ih_did_port = self._get_env(
             ENV_PROVIDER_IH_DID_PORT, DEFAULT_PROVIDER_IH_DID_PORT
         )
 
-        self.consumer_did = self._generate_participant_did(
-            self.issuer_public_host, self.consumer_did_server_port, "consumer"
-        )
         self.provider_did = self._generate_participant_did(
             self.issuer_public_host, self.provider_ih_did_port, "provider"
         )
@@ -195,7 +186,6 @@ class Config:
         logger.info(f"  Issuer Issuance Port: {self.issuer_issuance_port}")
         logger.info(f"  Issuer HTTP URL: {self.issuer_http_url}")
         logger.info(f"  Issuer DID: {self.issuer_did}")
-        logger.info(f"  Consumer DID: {self.consumer_did}")
         logger.info(f"  Provider DID: {self.provider_did}")
         logger.info(
             f"  Credential Validity: {self.credential_validity_seconds} seconds"
@@ -258,7 +248,6 @@ class Config:
             ("issuer_public_host", self.issuer_public_host),
             ("issuer_did_api_port", self.issuer_did_api_port),
             ("issuer_superuser_key", self.issuer_superuser_key),
-            ("consumer_did", self.consumer_did),
             ("provider_did", self.provider_did),
             ("credential_validity_seconds", str(self.credential_validity_seconds)),
         ]
