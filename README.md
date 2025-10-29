@@ -1,3 +1,6 @@
+> [!WARNING]
+> Currently, only **allow-all** policies work, whether for the access or contract policy. [This is a known issue that needs to be investigated](https://github.com/fundacionctic/edc-mvd-deploy-kit/issues/1).
+
 # EDC MVD Dataspace Kit
 
 A parameterized deployment toolkit for Eclipse EDC dataspaces, evolved from the [original Eclipse Dataspace Components (EDC) MVD](https://github.com/eclipse-edc/MinimumViableDataspace). Built with Docker Compose for simplified deployment, this kit enables configuration of dataspace participants and supports both local development and internet-exposed production environments.
@@ -242,12 +245,12 @@ Policies control access to data assets by validating Verifiable Credentials pres
 
 #### Available Policies
 
-| Policy ID | Required Credential | What It Checks |
-|-----------|---------------------|----------------|
-| `allow-all` | None | No restrictions - anyone can access |
-| `require-membership` | MembershipCredential | Consumer has active dataspace membership |
+| Policy ID               | Required Credential     | What It Checks                                  |
+| ----------------------- | ----------------------- | ----------------------------------------------- |
+| `allow-all`             | None                    | No restrictions - anyone can access             |
+| `require-membership`    | MembershipCredential    | Consumer has active dataspace membership        |
 | `require-dataprocessor` | DataProcessorCredential | Consumer authorized for "processing" level data |
-| `require-sensitive` | DataProcessorCredential | Consumer authorized for "sensitive" level data |
+| `require-sensitive`     | DataProcessorCredential | Consumer authorized for "sensitive" level data  |
 
 #### How Policies Work
 
