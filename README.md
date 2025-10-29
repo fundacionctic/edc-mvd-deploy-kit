@@ -128,50 +128,45 @@ task issuer:deploy
 
 ```mermaid
 graph TB
-    subgraph ISS["Issuer Service Stack"]
-        IS["Issuer Service<br/>Ports: 10010-10016"]
-        IDB["issuer-postgres<br/>Database"]
-        IV["issuer-vault<br/>HashiCorp Vault"]
+    subgraph NET["mvd-network (External Docker Network)"]
+        subgraph ISS["Issuer Service Stack"]
+            IS["issuer-service<br/>Internet-Exposed<br/>9 ports mapped"]
+            IDB["issuer-postgres<br/>Internal Only"]
+            IV["issuer-vault<br/>Internal Only"]
+            
+            IS --> IDB
+            IS --> IV
+        end
         
-        IS --> IDB
-        IS --> IV
+        subgraph PSS["Provider Participant Stack"]
+            PCP["provider-controlplane<br/>Internet-Exposed<br/>6 ports mapped"]
+            PDP["provider-dataplane<br/>Internet-Exposed<br/>4 ports mapped"]
+            PIH["provider-identityhub<br/>Internet-Exposed<br/>5 ports mapped"]
+            
+            PDB["provider-postgres<br/>Internal Only"]
+            PV["provider-vault<br/>Internal Only"]
+            
+            PCP --> PDB
+            PCP --> PV
+            PCP --> PIH
+            PDP --> PDB
+            PDP --> PV
+            PDP --> PCP
+            PIH --> PDB
+            PIH --> PV
+        end
+        
+        %% Cross-stack communication
+        IS -.-> PIH
     end
     
-    subgraph PSS["Provider Participant Stack"]
-        PCP["provider-controlplane<br/>Management: 8081<br/>DSP: 8082<br/>Health: 8080"]
-        PDP["provider-dataplane<br/>Public: 11002<br/>Control: 8093<br/>Health: 8090"]
-        PIH["provider-identityhub<br/>Credentials: 7001<br/>STS: 7002<br/>DID: 7003<br/>Health: 7000"]
-        
-        PDB["provider-postgres<br/>Database"]
-        PV["provider-vault<br/>HashiCorp Vault"]
-        
-        PCP --> PDB
-        PCP --> PV
-        PCP --> PIH
-        PDP --> PDB
-        PDP --> PV
-        PDP --> PCP
-        PIH --> PDB
-        PIH --> PV
-    end
+    classDef internetExposed fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef internal fill:#f3e5f5,stroke:#4a148c,stroke-width:1px
+    classDef vault fill:#fff3e0,stroke:#e65100,stroke-width:1px
+    classDef network fill:#e8f5e8,stroke:#1b5e20,stroke-width:3px
     
-    subgraph NET_GROUP["External Network"]
-        NET["mvd-network<br/>Docker Network"]
-    end
-    
-    IS -.-> PIH
-    IS --> NET
-    PCP --> NET
-    PDP --> NET
-    PIH --> NET
-    
-    classDef service fill:#e1f5fe
-    classDef database fill:#f3e5f5
-    classDef vault fill:#fff3e0
-    classDef network fill:#e8f5e8
-    
-    class IS,PCP,PDP,PIH service
-    class IDB,PDB database
+    class IS,PCP,PDP,PIH internetExposed
+    class IDB,PDB internal
     class IV,PV vault
     class NET network
 ```
