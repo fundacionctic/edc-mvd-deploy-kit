@@ -26,6 +26,16 @@ vars:
   PROVIDER_SCRIPTS_DIR: "{{.SCRIPTS_DIR}}/provider"
   MVD_SETUP_SCRIPT: "{{.SCRIPTS_DIR}}/setup-mvd-source.sh"
 
+  # Container names
+  PROVIDER_PG_CONTAINER_NAME: mvd-provider-postgres
+  PROVIDER_IH_CONTAINER_NAME: mvd-provider-identityhub
+  PROVIDER_VAULT_CONTAINER_NAME: mvd-provider-vault
+  PROVIDER_CP_CONTAINER_NAME: mvd-provider-controlplane
+  ISSUER_PG_CONTAINER_NAME: mvd-issuer-postgres
+
+  # HTTP Tracing Configuration
+  HTTP_TRACE_PORTS: "port 80 or port 443 or port 7000 or port 7001 or port 7002 or port 7003 or port 7005 or port 8080 or port 8081 or port 8082 or port 8083 or port 8084 or port 8090 or port 8093 or port 8200 or port 10010 or port 10011 or port 10012 or port 10013 or port 10014 or port 10015 or port 10016 or port 10017 or port 11002"
+
 dotenv:
   - .env
 
@@ -119,13 +129,12 @@ tasks:
     desc: Run an emphemeral container that exposes the issuer database on the host
     vars:
       PG_PORT_HOST: 5432
-      PG_CONTAINER_NAME: mvd-issuer-postgres
     cmds:
       - >
         docker run --rm --network {{.DOCKER_NETWORK}}
         -p {{.PG_PORT_HOST}}:5432
         alpine:latest
-        sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.PG_CONTAINER_NAME}}:5432"
+        sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.ISSUER_PG_CONTAINER_NAME}}:5432"
 
   # ============================================================
   # PROVIDER PARTICIPANT TASKS
@@ -202,32 +211,44 @@ tasks:
     desc: Run an emphemeral container that exposes the provider database on the host
     vars:
       PG_PORT_HOST: 5432
-      PG_CONTAINER_NAME: mvd-provider-postgres
     cmds:
       - >
         docker run --rm --network {{.DOCKER_NETWORK}}
         -p {{.PG_PORT_HOST}}:5432
         alpine:latest
-        sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.PG_CONTAINER_NAME}}:5432"
+        sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.PROVIDER_PG_CONTAINER_NAME}}:5432"
 
-  provider:trace-http-requests:
-    desc: Exec into the IdentityHub container to trace all HTTP/S requests
+  provider:trace-http:
+    desc: Trace HTTP requests for a specific container
+    internal: true
     vars:
-      IH_CONTAINER_NAME: mvd-provider-identityhub
+      CONTAINER_NAME: '{{.CONTAINER_NAME | default ""}}'
     cmds:
       - >
         docker run --rm -it
-        --net container:{{.IH_CONTAINER_NAME}}
+        --net container:{{.CONTAINER_NAME}}
         nicolaka/netshoot
-        ngrep -q -W byline port 80 or port 443 or port 7000 or port 7001 or port 7002 or port 7003 or port 7005
+        ngrep -q -W byline {{.HTTP_TRACE_PORTS}}
+
+  provider:trace-http-ih:
+    desc: Exec into the IdentityHub container to trace all HTTP requests
+    cmds:
+      - task: provider:trace-http
+        vars:
+          CONTAINER_NAME: "{{.PROVIDER_IH_CONTAINER_NAME}}"
+
+  provider:trace-http-cp:
+    desc: Exec into the Control Plane container to trace all HTTP requests
+    cmds:
+      - task: provider:trace-http
+        vars:
+          CONTAINER_NAME: "{{.PROVIDER_CP_CONTAINER_NAME}}"
 
   provider:list-vault-secrets:
     desc: List all the secrets stored in the provider's Vault
-    vars:
-      VAULT_CONTAINER_NAME: mvd-provider-vault
     cmds:
       - >
-        docker exec {{.VAULT_CONTAINER_NAME}}
+        docker exec {{.PROVIDER_VAULT_CONTAINER_NAME}}
         sh -c 'VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN={{.PROVIDER_VAULT_TOKEN}} vault kv list secret/'
 
   # ============================================================
