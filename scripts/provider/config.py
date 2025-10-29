@@ -21,7 +21,7 @@ import logging
 import os
 import sys
 import urllib.parse
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 # Configure logging
 logging.basicConfig(
@@ -468,6 +468,112 @@ class Config:
             "Content-Type": "application/json",
             "X-Api-Key": self.issuer_superuser_key,
         }
+
+    def get_asset_definitions(self) -> List[Dict]:
+        """
+        Get asset definitions from configuration.
+
+        Dynamically discovers all assets defined in environment variables.
+        Assets are defined using the pattern:
+        - PROVIDER_ASSET_{N}_ID (required)
+        - PROVIDER_ASSET_{N}_DESCRIPTION (optional, defaults to "Asset {N}")
+        - PROVIDER_ASSET_{N}_BASE_URL (required)
+        - PROVIDER_ASSET_{N}_PROXY_PATH (optional, defaults to "true")
+        - PROVIDER_ASSET_{N}_PROXY_QUERY_PARAMS (optional, defaults to "true")
+
+        Where {N} is any positive integer (1, 2, 3, etc.)
+
+        Returns:
+            List of asset definitions based on environment configuration
+        """
+        assets = []
+
+        # Scan all environment variables for asset definitions
+        asset_numbers = set()
+        for env_var in os.environ:
+            if env_var.startswith("PROVIDER_ASSET_") and env_var.endswith("_ID"):
+                # Extract asset number from PROVIDER_ASSET_{N}_ID
+                try:
+                    asset_num_str = env_var.replace("PROVIDER_ASSET_", "").replace(
+                        "_ID", ""
+                    )
+                    asset_num = int(asset_num_str)
+                    asset_numbers.add(asset_num)
+                except ValueError:
+                    logger.warning(
+                        f"Invalid asset environment variable format: {env_var}"
+                    )
+                    continue
+
+        # Sort asset numbers to ensure consistent ordering
+        for asset_num in sorted(asset_numbers):
+            asset_id = os.environ.get(f"PROVIDER_ASSET_{asset_num}_ID")
+            asset_base_url = os.environ.get(f"PROVIDER_ASSET_{asset_num}_BASE_URL")
+
+            # Skip if required fields are missing
+            if not asset_id or not asset_base_url:
+                logger.warning(
+                    f"Asset {asset_num}: Missing required ID or BASE_URL, skipping"
+                )
+                continue
+
+            # Get optional fields with defaults
+            asset_description = os.environ.get(
+                f"PROVIDER_ASSET_{asset_num}_DESCRIPTION", f"Asset {asset_num}"
+            )
+            asset_proxy_path = os.environ.get(
+                f"PROVIDER_ASSET_{asset_num}_PROXY_PATH", "true"
+            )
+            asset_proxy_query_params = os.environ.get(
+                f"PROVIDER_ASSET_{asset_num}_PROXY_QUERY_PARAMS", "true"
+            )
+
+            # Additional optional fields for more advanced configurations
+            asset_type = os.environ.get(f"PROVIDER_ASSET_{asset_num}_TYPE", "HttpData")
+
+            # Build the asset definition
+            asset_def = {
+                "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
+                "@id": asset_id,
+                "@type": "Asset",
+                "properties": {"description": asset_description},
+                "dataAddress": {
+                    "@type": "DataAddress",
+                    "type": asset_type,
+                    "baseUrl": asset_base_url,
+                    "proxyPath": asset_proxy_path,
+                    "proxyQueryParams": asset_proxy_query_params,
+                },
+            }
+
+            # Add any additional custom properties
+            for env_var in os.environ:
+                if env_var.startswith(f"PROVIDER_ASSET_{asset_num}_PROPERTY_"):
+                    property_name = env_var.replace(
+                        f"PROVIDER_ASSET_{asset_num}_PROPERTY_", ""
+                    ).lower()
+                    property_value = os.environ[env_var]
+                    asset_def["properties"][property_name] = property_value
+                elif env_var.startswith(f"PROVIDER_ASSET_{asset_num}_DATA_"):
+                    data_property = env_var.replace(
+                        f"PROVIDER_ASSET_{asset_num}_DATA_", ""
+                    ).lower()
+                    data_value = os.environ[env_var]
+                    asset_def["dataAddress"][data_property] = data_value
+
+            assets.append(asset_def)
+            logger.debug(
+                f"Configured asset {asset_num}: {asset_id} -> {asset_base_url}"
+            )
+
+        if not assets:
+            logger.warning(
+                "No assets found in configuration. Define assets using PROVIDER_ASSET_{N}_ID and PROVIDER_ASSET_{N}_BASE_URL environment variables."
+            )
+        else:
+            logger.info(f"Loaded {len(assets)} asset definitions from configuration")
+
+        return assets
 
     def get_health_urls(self) -> Dict[str, str]:
         """

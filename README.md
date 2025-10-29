@@ -182,6 +182,34 @@ graph TB
 
 Key configuration is stored in `.env` (example default configuration is available in `.env.example`).
 
+### Configurable Data Sources
+
+The Provider can expose any number of data assets to the dataspace. Configure assets using environment variables:
+
+**Required per asset:**
+- `PROVIDER_ASSET_{N}_ID` - Unique asset identifier
+- `PROVIDER_ASSET_{N}_BASE_URL` - Data source URL
+
+**Optional per asset:**
+- `PROVIDER_ASSET_{N}_DESCRIPTION` - Human-readable description
+- `PROVIDER_ASSET_{N}_PROXY_PATH` - Enable path proxying (default: "true")
+- `PROVIDER_ASSET_{N}_PROXY_QUERY_PARAMS` - Enable query parameter proxying (default: "true")
+- `PROVIDER_ASSET_{N}_PROPERTY_{NAME}` - Custom asset properties
+- `PROVIDER_ASSET_{N}_DATA_{NAME}` - Custom data address properties
+
+**Examples:**
+```bash
+# Basic API asset
+PROVIDER_ASSET_1_ID=todos-api
+PROVIDER_ASSET_1_BASE_URL=https://jsonplaceholder.typicode.com/todos
+
+# Database with custom properties
+PROVIDER_ASSET_2_ID=customer-data
+PROVIDER_ASSET_2_BASE_URL=https://api.example.com/customers
+PROVIDER_ASSET_2_PROPERTY_CATEGORY=customer-data
+PROVIDER_ASSET_2_DATA_AUTHHEADER=Bearer
+```
+
 ## Deployment Components
 
 ### Issuer Service

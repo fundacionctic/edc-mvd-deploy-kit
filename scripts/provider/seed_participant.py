@@ -169,45 +169,17 @@ def create_contract_definition(config, contract_data: Dict) -> bool:
         return False
 
 
-def get_asset_definitions() -> List[Dict]:
+def get_asset_definitions(config) -> List[Dict]:
     """
-    Get asset definitions based on edc-mvds Postman collection.
+    Get asset definitions from configuration.
+
+    Args:
+        config: Configuration object containing asset definitions
 
     Returns:
-        List of asset definitions
+        List of asset definitions from configuration
     """
-    return [
-        {
-            "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
-            "@id": "asset-1",
-            "@type": "Asset",
-            "properties": {
-                "description": "This asset requires Membership to view and negotiate."
-            },
-            "dataAddress": {
-                "@type": "DataAddress",
-                "type": "HttpData",
-                "baseUrl": "https://jsonplaceholder.typicode.com/todos",
-                "proxyPath": "true",
-                "proxyQueryParams": "true",
-            },
-        },
-        {
-            "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
-            "@id": "asset-2",
-            "@type": "Asset",
-            "properties": {
-                "description": "This asset requires Membership to view and SensitiveData credential to negotiate."
-            },
-            "dataAddress": {
-                "@type": "DataAddress",
-                "type": "HttpData",
-                "baseUrl": "https://jsonplaceholder.typicode.com/todos",
-                "proxyPath": "true",
-                "proxyQueryParams": "true",
-            },
-        },
-    ]
+    return config.get_asset_definitions()
 
 
 def get_policy_definitions() -> List[Dict]:
@@ -337,7 +309,7 @@ def seed_assets(config) -> bool:
     """
     logger.info("Seeding data assets...")
 
-    assets = get_asset_definitions()
+    assets = get_asset_definitions(config)
     all_successful = True
 
     for asset in assets:
