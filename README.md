@@ -189,21 +189,96 @@ The Provider can expose any number of data assets to the dataspace. Configure as
 - `PROVIDER_ASSET_{N}_DESCRIPTION` - Human-readable description
 - `PROVIDER_ASSET_{N}_PROXY_PATH` - Enable path proxying (default: "true")
 - `PROVIDER_ASSET_{N}_PROXY_QUERY_PARAMS` - Enable query parameter proxying (default: "true")
+- `PROVIDER_ASSET_{N}_ACCESS_POLICY` - Policy ID for catalog access (default: "allow-all")
+- `PROVIDER_ASSET_{N}_CONTRACT_POLICY` - Policy ID for contract negotiation (default: "allow-all")
 - `PROVIDER_ASSET_{N}_PROPERTY_{NAME}` - Custom asset properties
 - `PROVIDER_ASSET_{N}_DATA_{NAME}` - Custom data address properties
 
 **Examples:**
 ```bash
-# Basic API asset
+# Basic API asset with default policies (allow-all)
 PROVIDER_ASSET_1_ID=todos-api
 PROVIDER_ASSET_1_BASE_URL=https://jsonplaceholder.typicode.com/todos
 
-# Database with custom properties
+# Sensitive data with membership requirement
 PROVIDER_ASSET_2_ID=customer-data
 PROVIDER_ASSET_2_BASE_URL=https://api.example.com/customers
+PROVIDER_ASSET_2_ACCESS_POLICY=require-membership
+PROVIDER_ASSET_2_CONTRACT_POLICY=require-sensitive
 PROVIDER_ASSET_2_PROPERTY_CATEGORY=customer-data
 PROVIDER_ASSET_2_DATA_AUTHHEADER=Bearer
+
+# Processing-level data with custom policies
+PROVIDER_ASSET_3_ID=analytics-data
+PROVIDER_ASSET_3_BASE_URL=https://api.example.com/analytics
+PROVIDER_ASSET_3_ACCESS_POLICY=require-membership
+PROVIDER_ASSET_3_CONTRACT_POLICY=require-dataprocessor
 ```
+
+#### Dynamic Contract Definitions
+
+Contract definitions are **automatically generated** for each configured asset during deployment. The system scans all `PROVIDER_ASSET_{N}_ID` environment variables and creates a corresponding contract definition with:
+
+- **Contract Definition ID**: `{asset_id}-contract-def`
+- **Asset Selector**: Targets the specific asset by ID
+- **Access Policy**: Controls who can see the asset in the catalog (default: `allow-all`)
+- **Contract Policy**: Controls who can negotiate contracts for the asset (default: `allow-all`)
+
+**Available Policy IDs:**
+- `allow-all` - No restrictions
+- `require-membership` - Requires MembershipCredential
+- `require-dataprocessor` - Requires DataProcessorCredential with processing level
+- `require-sensitive` - Requires DataProcessorCredential with sensitive level
+
+**How it works:**
+1. During `task provider:seed`, the script scans for all asset definitions
+2. For each asset, it reads the optional `ACCESS_POLICY` and `CONTRACT_POLICY` variables
+3. A contract definition is automatically created linking the asset to its policies
+4. If no policies are specified, defaults to `allow-all` for both access and contract
+
+### Understanding Policy Enforcement
+
+Policies control access to data assets by validating Verifiable Credentials presented by consumers.
+
+#### Available Policies
+
+| Policy ID | Required Credential | What It Checks |
+|-----------|---------------------|----------------|
+| `allow-all` | None | No restrictions - anyone can access |
+| `require-membership` | MembershipCredential | Consumer has active dataspace membership |
+| `require-dataprocessor` | DataProcessorCredential | Consumer authorized for "processing" level data |
+| `require-sensitive` | DataProcessorCredential | Consumer authorized for "sensitive" level data |
+
+#### How Policies Work
+
+When a consumer requests data, the Provider's Policy Engine:
+1. Extracts the consumer's Verifiable Credentials
+2. Checks if required credentials are present
+3. Validates credential claims match policy requirements
+4. Grants or denies access based on the result
+
+Policies are enforced at three stages:
+- **Catalog**: Controls which assets consumers can see
+- **Negotiation**: Controls which contracts can be negotiated
+- **Transfer**: Controls which data transfers can proceed
+
+#### Example: Protecting Sensitive Data
+
+```bash
+# Asset configuration
+PROVIDER_ASSET_2_ID=customer-data
+PROVIDER_ASSET_2_BASE_URL=https://api.example.com/customers
+PROVIDER_ASSET_2_ACCESS_POLICY=require-membership
+PROVIDER_ASSET_2_CONTRACT_POLICY=require-sensitive
+```
+
+**Access Requirements:**
+- Consumer needs `MembershipCredential` to see the asset in the catalog
+- Consumer needs `DataProcessorCredential` with `level: "sensitive"` to negotiate contracts and transfer data
+
+**Without proper credentials:**
+- Missing `MembershipCredential` → Asset hidden from catalog
+- Missing `DataProcessorCredential` with correct level → Contract negotiation fails
 
 ## Deployment Components
 
@@ -357,13 +432,12 @@ sequenceDiagram
     CP -->> Script: 200 OK / 409 Conflict
   end
   rect rgb(245, 240, 255)
-    Note over Script, CP: Step 6: Create Contract Definitions
+    Note over Script, CP: Step 6: Create Contract Definitions (Dynamic)
+    Note right of Script: Script scans PROVIDER_ASSET_{N}_ID<br/>environment variables and generates<br/>contract definitions automatically
     Script ->> CP: POST /api/management/v3/contractdefinitions
-    Note right of Script: Auth: x-api-key (management)<br/>@id: simple-access-def<br/>accessPolicyId: allow-all<br/>contractPolicyId: allow-all<br/>assetSelector: asset-1
+    Note right of Script: Auth: x-api-key (management)<br/>@id: {asset-id}-contract-def<br/>accessPolicyId: from ASSET_{N}_ACCESS_POLICY<br/>contractPolicyId: from ASSET_{N}_CONTRACT_POLICY<br/>assetSelector: matches asset by ID
     CP -->> Script: 200 OK / 409 Conflict
-    Script ->> CP: POST /api/management/v3/contractdefinitions
-    Note right of Script: Auth: x-api-key (management)<br/>@id: sensitive-only-def<br/>accessPolicyId: require-membership<br/>contractPolicyId: require-sensitive<br/>assetSelector: asset-2
-    CP -->> Script: 200 OK / 409 Conflict
+    Note right of Script: Repeats for each configured asset<br/>Defaults to allow-all if policies not specified
   end
   rect rgb(250, 245, 245)
     Note over Script, CP: Step 7: Verify Seeded Data

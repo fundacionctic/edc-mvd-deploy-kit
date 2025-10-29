@@ -26,6 +26,7 @@ Based on:
 import json
 import logging
 import os
+import pprint
 import sys
 from typing import Dict, List, Optional, Tuple
 
@@ -86,11 +87,11 @@ def create_asset(config, asset_data: Dict) -> bool:
         url, "POST", headers, json.dumps(asset_data)
     )
 
-    if success and status_code in [200, 204, 409]:  # 409 = already exists
-        if status_code == 409:
-            logger.info(f"✅ Asset {asset_id} already exists")
-        else:
-            logger.info(f"✅ Asset {asset_id} created successfully")
+    if status_code == 409:
+        logger.info(f"✅ Asset {asset_id} already exists")
+        return True
+    elif success and status_code in [200, 204]:
+        logger.info(f"✅ Asset {asset_id} created successfully")
         return True
     else:
         logger.error(f"❌ Failed to create asset {asset_id}: {status_code}")
@@ -120,11 +121,11 @@ def create_policy(config, policy_data: Dict) -> bool:
         url, "POST", headers, json.dumps(policy_data)
     )
 
-    if success and status_code in [200, 204, 409]:  # 409 = already exists
-        if status_code == 409:
-            logger.info(f"✅ Policy {policy_id} already exists")
-        else:
-            logger.info(f"✅ Policy {policy_id} created successfully")
+    if status_code == 409:
+        logger.info(f"✅ Policy {policy_id} already exists")
+        return True
+    elif success and status_code in [200, 204]:
+        logger.info(f"✅ Policy {policy_id} created successfully")
         return True
     else:
         logger.error(f"❌ Failed to create policy {policy_id}: {status_code}")
@@ -154,11 +155,11 @@ def create_contract_definition(config, contract_data: Dict) -> bool:
         url, "POST", headers, json.dumps(contract_data)
     )
 
-    if success and status_code in [200, 204, 409]:  # 409 = already exists
-        if status_code == 409:
-            logger.info(f"✅ Contract definition {contract_id} already exists")
-        else:
-            logger.info(f"✅ Contract definition {contract_id} created successfully")
+    if status_code == 409:
+        logger.info(f"✅ Contract definition {contract_id} already exists")
+        return True
+    elif success and status_code in [200, 204]:
+        logger.info(f"✅ Contract definition {contract_id} created successfully")
         return True
     else:
         logger.error(
@@ -260,41 +261,94 @@ def get_policy_definitions() -> List[Dict]:
     ]
 
 
-def get_contract_definitions() -> List[Dict]:
+def get_contract_definitions(config) -> List[Dict]:
     """
-    Get contract definitions based on edc-mvds Postman collection.
+    Get contract definitions dynamically based on configured assets.
+
+    Generates a contract definition for each asset using the asset's policy
+    configuration. If an asset doesn't specify policies, defaults to 'allow-all'
+    for both access and contract policies.
+
+    Policy Configuration (per asset via environment variables):
+    - PROVIDER_ASSET_{N}_ACCESS_POLICY: Policy ID for catalog access (default: 'allow-all')
+    - PROVIDER_ASSET_{N}_CONTRACT_POLICY: Policy ID for contract negotiation (default: 'allow-all')
+
+    Args:
+        config: Configuration object containing asset definitions
 
     Returns:
-        List of contract definitions
+        List of dynamically generated contract definitions
     """
-    return [
-        {
+    contract_definitions = []
+
+    # Scan all environment variables for asset definitions
+    asset_numbers = set()
+    for env_var in os.environ:
+        if env_var.startswith("PROVIDER_ASSET_") and env_var.endswith("_ID"):
+            try:
+                asset_num_str = env_var.replace("PROVIDER_ASSET_", "").replace(
+                    "_ID", ""
+                )
+                asset_num = int(asset_num_str)
+                asset_numbers.add(asset_num)
+            except ValueError:
+                logger.warning(f"Invalid asset environment variable format: {env_var}")
+                continue
+
+    # Generate contract definition for each asset
+    for asset_num in sorted(asset_numbers):
+        asset_id = os.environ.get(f"PROVIDER_ASSET_{asset_num}_ID")
+
+        if not asset_id:
+            logger.warning(
+                f"Asset {asset_num}: Missing ID, skipping contract definition"
+            )
+            continue
+
+        # Get policy IDs with defaults
+        access_policy_id = os.environ.get(
+            f"PROVIDER_ASSET_{asset_num}_ACCESS_POLICY", "allow-all"
+        )
+        contract_policy_id = os.environ.get(
+            f"PROVIDER_ASSET_{asset_num}_CONTRACT_POLICY", "allow-all"
+        )
+
+        # Generate contract definition ID
+        contract_def_id = f"{asset_id}-contract-def"
+
+        contract_def = {
             "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
-            "@id": "simple-access-def",
+            "@id": contract_def_id,
             "@type": "ContractDefinition",
-            "accessPolicyId": "allow-all",
-            "contractPolicyId": "allow-all",
+            "accessPolicyId": access_policy_id,
+            "contractPolicyId": contract_policy_id,
             "assetsSelector": {
                 "@type": "Criterion",
                 "operandLeft": "https://w3id.org/edc/v0.0.1/ns/id",
                 "operator": "=",
-                "operandRight": "asset-1",
+                "operandRight": asset_id,
             },
-        },
-        {
-            "@context": ["https://w3id.org/edc/connector/management/v0.0.1"],
-            "@id": "sensitive-only-def",
-            "@type": "ContractDefinition",
-            "accessPolicyId": "require-membership",
-            "contractPolicyId": "require-sensitive",
-            "assetsSelector": {
-                "@type": "Criterion",
-                "operandLeft": "https://w3id.org/edc/v0.0.1/ns/id",
-                "operator": "=",
-                "operandRight": "asset-2",
-            },
-        },
-    ]
+        }
+
+        contract_definitions.append(contract_def)
+
+        logger.debug(
+            "Configured contract definition for asset %s:\n%s",
+            asset_id,
+            pprint.pformat(contract_def),
+        )
+
+    if not contract_definitions:
+        logger.warning(
+            "No contract definitions generated. Assets must be configured using "
+            "PROVIDER_ASSET_{N}_ID environment variables."
+        )
+    else:
+        logger.info(
+            f"Generated {len(contract_definitions)} contract definitions from asset configuration"
+        )
+
+    return contract_definitions
 
 
 def seed_assets(config) -> bool:
@@ -363,7 +417,7 @@ def seed_contracts(config) -> bool:
     """
     logger.info("Seeding contract definitions...")
 
-    contracts = get_contract_definitions()
+    contracts = get_contract_definitions(config)
     all_successful = True
 
     for contract in contracts:
