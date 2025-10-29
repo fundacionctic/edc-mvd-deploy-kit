@@ -218,6 +218,15 @@ tasks:
         alpine:latest
         sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.PROVIDER_PG_CONTAINER_NAME}}:5432"
 
+  provider:debug-databases:
+    desc: Pretty-print all provider database contents for debugging (controlplane, dataplane, identity hub)
+    cmds:
+      - >
+        docker run --rm --network {{.DOCKER_NETWORK}}
+        -v {{.ROOT_DIR}}/scripts:/scripts
+        postgres:16
+        /scripts/provider/debug_databases.sh {{.PROVIDER_PG_CONTAINER_NAME}}
+
   provider:trace-http:
     desc: Trace HTTP requests for a specific container
     internal: true
