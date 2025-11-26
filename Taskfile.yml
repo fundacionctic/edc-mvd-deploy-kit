@@ -150,14 +150,17 @@ tasks:
       # Optional issuer DID override
       ISSUER_DID_FLAG: '{{if .ISSUER_DID}}--issuer-did "{{.ISSUER_DID}}"{{end}}'
     cmds:
-      - |
-        {{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/add_participant.py \
-          --did "{{.PARTICIPANT_DID}}" \
-          --name "{{.PARTICIPANT_NAME}}" \
-          --membership-type {{.MEMBERSHIP_TYPE}} \
-          --processing-level {{.PROCESSING_LEVEL}} \
-          --contract-version {{.CONTRACT_VERSION}} \
-          {{.ISSUER_DID_FLAG}}
+      - >
+        docker run --rm --network {{.DOCKER_NETWORK}}
+        -v {{.ROOT_DIR}}:/workspace
+        -w /workspace
+        -e ISSUER_PUBLIC_HOST={{.ISSUER_PG_CONTAINER_NAME}}
+        -e ISSUER_DB_PORT=${ISSUER_DB_PORT:-5432}
+        -e ISSUER_DB_NAME=${ISSUER_DB_NAME:-issuer}
+        -e ISSUER_DB_USER=${ISSUER_DB_USER:-issuer}
+        -e ISSUER_DB_PASSWORD=${ISSUER_DB_PASSWORD:-issuer}
+        python:3.10-slim
+        sh -c "pip install -q psycopg2-binary && python3 scripts/issuer/add_participant.py --did '{{.PARTICIPANT_DID}}' --name '{{.PARTICIPANT_NAME}}' --membership-type {{.MEMBERSHIP_TYPE}} --processing-level {{.PROCESSING_LEVEL}} --contract-version {{.CONTRACT_VERSION}} {{.ISSUER_DID_FLAG}}"
 
   # ============================================================
   # PROVIDER PARTICIPANT TASKS
