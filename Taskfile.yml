@@ -292,13 +292,31 @@ tasks:
 
   e2e:test:
     desc: Run end-to-end test for dataspace transaction
+    vars:
+      TARGET_ADDRESS_FLAG: '{{if .TARGET_ADDRESS}}--target-address "{{.TARGET_ADDRESS}}"{{end}}'
+      TARGET_DID_FLAG: '{{if .TARGET_DID}}--target-did "{{.TARGET_DID}}"{{end}}'
     cmds:
-      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py {{.TARGET_ADDRESS_FLAG}} {{.TARGET_DID_FLAG}}"
 
   e2e:test-verbose:
     desc: Run end-to-end test with verbose output
+    vars:
+      TARGET_ADDRESS_FLAG: '{{if .TARGET_ADDRESS}}--target-address "{{.TARGET_ADDRESS}}"{{end}}'
+      TARGET_DID_FLAG: '{{if .TARGET_DID}}--target-did "{{.TARGET_DID}}"{{end}}'
     cmds:
-      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py --verbose"
+      - "{{.PYTHON_CMD}} {{.PROVIDER_SCRIPTS_DIR}}/e2e_test.py --verbose {{.TARGET_ADDRESS_FLAG}} {{.TARGET_DID_FLAG}}"
+
+  e2e:test-remote:
+    desc: Run end-to-end test against a remote connector
+    requires:
+      vars: [TARGET_ADDRESS, TARGET_DID]
+    cmds:
+      - task: e2e:test
+        vars:
+          # Example: http://other-connector.com:7082/api/dsp
+          TARGET_ADDRESS: "{{.TARGET_ADDRESS}}"
+          # Example: did:web:other-connector.com:provider
+          TARGET_DID: "{{.TARGET_DID}}"
 
   e2e:test-asset:
     desc: Run end-to-end test for specific asset (use ASSET_ID=asset-2)

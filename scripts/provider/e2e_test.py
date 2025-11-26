@@ -20,7 +20,8 @@ Test Flow:
     Phase 4: Data Access - Retrieve EDR and access data via dataplane
 
 Usage:
-    python3 scripts/provider/e2e_test.py [--skip-prerequisites] [--asset-id ASSET_ID]
+    python3 scripts/provider/e2e_test.py [--skip-prerequisites] [--asset-id ASSET_ID] \
+        [--target-address ADDRESS] [--target-did DID]
 
     Or using Task automation:
         task e2e:test
@@ -30,7 +31,9 @@ Usage:
 Options:
     --skip-prerequisites  Skip prerequisite checks (not recommended)
     --asset-id ASSET_ID   Target specific asset ID (default: asset-1)
-    --verbose            Enable verbose output
+    --target-address      Target DSP address (default: provider's own address)
+    --target-did          Target DID (default: provider's own DID)
+    --verbose             Enable verbose output
 
 Environment Variables:
     All configuration from .env file (see .env.example for reference)
@@ -338,7 +341,7 @@ def check_prerequisites(config) -> bool:
 # ============================================================
 
 
-def request_catalog(config) -> Optional[Dict]:
+def request_catalog(config, target_address: str, target_did: str) -> Optional[Dict]:
     """
     Request catalog from provider (Phase 1).
 
@@ -346,11 +349,13 @@ def request_catalog(config) -> Optional[Dict]:
 
     Args:
         config: Configuration object
+        target_address: Target DSP address
+        target_did: Target DID
 
     Returns:
         Catalog response or None on failure
     """
-    logger.info("Requesting catalog from provider...")
+    logger.info(f"Requesting catalog from {target_did} ({target_address})...")
 
     # Use public host from config
     url = f"http://{config.provider_public_host}:{config.provider_cp_management_port}/api/management/v3/catalog/request"
@@ -361,8 +366,8 @@ def request_catalog(config) -> Optional[Dict]:
         {
             "@context": EDC_CONTEXT,
             "@type": "CatalogRequest",
-            "counterPartyAddress": f"http://{config.provider_public_host}:{config.provider_cp_protocol_port}/api/dsp",
-            "counterPartyId": config.provider_did,
+            "counterPartyAddress": target_address,
+            "counterPartyId": target_did,
             "protocol": DSP_PROTOCOL,
             "querySpec": {"filterExpression": []},
         }
@@ -444,7 +449,7 @@ def extract_offer_from_catalog(
 
 
 def phase_1_catalog_discovery(
-    config, target_asset_id: str
+    config, target_asset_id: str, target_address: str, target_did: str
 ) -> Optional[Tuple[str, Dict]]:
     """
     Execute Phase 1: Catalog Discovery.
@@ -452,6 +457,8 @@ def phase_1_catalog_discovery(
     Args:
         config: Configuration object
         target_asset_id: Asset ID to search for
+        target_address: Target DSP address
+        target_did: Target DID
 
     Returns:
         Tuple of (asset_id, policy_dict) or None on failure
@@ -460,7 +467,7 @@ def phase_1_catalog_discovery(
     logger.info("PHASE 1: CATALOG DISCOVERY")
     logger.info("=" * 60)
 
-    catalog = request_catalog(config)
+    catalog = request_catalog(config, target_address, target_did)
     if not catalog:
         return None
 
@@ -478,7 +485,7 @@ def phase_1_catalog_discovery(
 
 
 def initiate_contract_negotiation(
-    config, asset_id: str, policy: Dict
+    config, asset_id: str, policy: Dict, target_address: str, target_did: str
 ) -> Optional[str]:
     """
     Initiate contract negotiation (Phase 2).
@@ -489,6 +496,8 @@ def initiate_contract_negotiation(
         config: Configuration object
         asset_id: Asset ID from catalog
         policy: Full policy object from catalog
+        target_address: Target DSP address
+        target_did: Target DID
 
     Returns:
         Negotiation ID or None on failure
@@ -501,7 +510,7 @@ def initiate_contract_negotiation(
     # Contract negotiation request format from E2E_TEST_GUIDE.md
     # Use the policy from catalog but add required fields for negotiation
     negotiation_policy = policy.copy()
-    negotiation_policy["odrl:assigner"] = {"@id": config.provider_did}
+    negotiation_policy["odrl:assigner"] = {"@id": target_did}
     negotiation_policy["odrl:target"] = {"@id": asset_id}
     
     negotiation_request = json.dumps(
@@ -511,8 +520,8 @@ def initiate_contract_negotiation(
                 "odrl": "http://www.w3.org/ns/odrl/2/"
             },
             "@type": "ContractRequest",
-            "counterPartyAddress": f"http://{config.provider_public_host}:{config.provider_cp_protocol_port}/api/dsp",
-            "counterPartyId": config.provider_did,
+            "counterPartyAddress": target_address,
+            "counterPartyId": target_did,
             "protocol": DSP_PROTOCOL,
             "policy": negotiation_policy,
         }
@@ -599,7 +608,7 @@ def poll_negotiation_status(config, negotiation_id: str) -> Optional[str]:
 
 
 def phase_2_contract_negotiation(
-    config, asset_id: str, policy: Dict
+    config, asset_id: str, policy: Dict, target_address: str, target_did: str
 ) -> Optional[str]:
     """
     Execute Phase 2: Contract Negotiation.
@@ -608,6 +617,8 @@ def phase_2_contract_negotiation(
         config: Configuration object
         asset_id: Asset ID from catalog
         policy: Full policy object from catalog
+        target_address: Target DSP address
+        target_did: Target DID
 
     Returns:
         Agreement ID or None on failure
@@ -616,7 +627,9 @@ def phase_2_contract_negotiation(
     logger.info("PHASE 2: CONTRACT NEGOTIATION")
     logger.info("=" * 60)
 
-    negotiation_id = initiate_contract_negotiation(config, asset_id, policy)
+    negotiation_id = initiate_contract_negotiation(
+        config, asset_id, policy, target_address, target_did
+    )
     if not negotiation_id:
         return None
 
@@ -634,7 +647,7 @@ def phase_2_contract_negotiation(
 
 
 def initiate_transfer_process(
-    config, asset_id: str, agreement_id: str
+    config, asset_id: str, agreement_id: str, target_address: str, target_did: str
 ) -> Optional[str]:
     """
     Initiate transfer process (Phase 3).
@@ -645,6 +658,8 @@ def initiate_transfer_process(
         config: Configuration object
         asset_id: Asset ID from catalog
         agreement_id: Agreement ID from negotiation
+        target_address: Target DSP address
+        target_did: Target DID
 
     Returns:
         Transfer process ID or None on failure
@@ -659,8 +674,8 @@ def initiate_transfer_process(
         {
             "@context": EDC_CONTEXT,
             "@type": "TransferRequest",
-            "counterPartyAddress": f"http://{config.provider_public_host}:{config.provider_cp_protocol_port}/api/dsp",
-            "counterPartyId": config.provider_did,
+            "counterPartyAddress": target_address,
+            "counterPartyId": target_did,
             "contractId": agreement_id,
             "assetId": asset_id,
             "protocol": DSP_PROTOCOL,
@@ -748,7 +763,9 @@ def poll_transfer_status(config, transfer_id: str) -> bool:
     return False
 
 
-def phase_3_transfer_process(config, asset_id: str, agreement_id: str) -> Optional[str]:
+def phase_3_transfer_process(
+    config, asset_id: str, agreement_id: str, target_address: str, target_did: str
+) -> Optional[str]:
     """
     Execute Phase 3: Transfer Process.
 
@@ -756,6 +773,8 @@ def phase_3_transfer_process(config, asset_id: str, agreement_id: str) -> Option
         config: Configuration object
         asset_id: Asset ID from catalog
         agreement_id: Agreement ID from negotiation
+        target_address: Target DSP address
+        target_did: Target DID
 
     Returns:
         Transfer process ID or None on failure
@@ -764,7 +783,9 @@ def phase_3_transfer_process(config, asset_id: str, agreement_id: str) -> Option
     logger.info("PHASE 3: TRANSFER PROCESS")
     logger.info("=" * 60)
 
-    transfer_id = initiate_transfer_process(config, asset_id, agreement_id)
+    transfer_id = initiate_transfer_process(
+        config, asset_id, agreement_id, target_address, target_did
+    )
     if not transfer_id:
         return None
 
@@ -932,7 +953,11 @@ def phase_4_data_access(config, transfer_id: str) -> bool:
 
 
 def run_e2e_test(
-    config, target_asset_id: str, skip_prerequisites: bool = False
+    config,
+    target_asset_id: str,
+    target_address: str = None,
+    target_did: str = None,
+    skip_prerequisites: bool = False,
 ) -> bool:
     """
     Run complete end-to-end test.
@@ -940,26 +965,26 @@ def run_e2e_test(
     Args:
         config: Configuration object
         target_asset_id: Asset ID to test with
+        target_address: Target DSP address (optional)
+        target_did: Target DID (optional)
         skip_prerequisites: Skip prerequisite checks (not recommended)
 
     Returns:
         True if all phases successful, False otherwise
     """
+    # Set defaults if not provided (self-loop test)
+    if not target_address:
+        target_address = f"http://{config.provider_public_host}:{config.provider_cp_protocol_port}/api/dsp"
+    if not target_did:
+        target_did = config.provider_did
+
     logger.info("=" * 60)
     logger.info("MINIMUM VIABLE DATASPACE - END-TO-END TEST")
     logger.info("=" * 60)
-    logger.info(f"Target Asset: {target_asset_id}")
-    logger.info(f"Provider DID: {config.provider_did}")
-    logger.info(f"Provider Host: {config.provider_public_host}")
-    logger.info(
-        f"Management API: {config.provider_public_host}:{config.provider_cp_management_port}"
-    )
-    logger.info(
-        f"DSP Protocol: {config.provider_public_host}:{config.provider_cp_protocol_port}"
-    )
-    logger.info(
-        f"Data Plane Public API: {config.provider_public_host}:{config.provider_dp_public_port}"
-    )
+    logger.info(f"Target Asset:   {target_asset_id}")
+    logger.info(f"Target Address: {target_address}")
+    logger.info(f"Target DID:     {target_did}")
+    logger.info(f"Provider DID:   {config.provider_did}")
     logger.info("=" * 60)
 
     # Phase 0: Prerequisites (optional skip)
@@ -971,7 +996,7 @@ def run_e2e_test(
         logger.warning("⚠️  Skipping prerequisite checks (not recommended)")
 
     # Phase 1: Catalog Discovery
-    offer = phase_1_catalog_discovery(config, target_asset_id)
+    offer = phase_1_catalog_discovery(config, target_asset_id, target_address, target_did)
     if not offer:
         logger.error("\n❌ E2E Test Failed - Phase 1: Catalog Discovery\n")
         return False
@@ -979,13 +1004,17 @@ def run_e2e_test(
     asset_id, policy = offer
 
     # Phase 2: Contract Negotiation
-    agreement_id = phase_2_contract_negotiation(config, asset_id, policy)
+    agreement_id = phase_2_contract_negotiation(
+        config, asset_id, policy, target_address, target_did
+    )
     if not agreement_id:
         logger.error("\n❌ E2E Test Failed - Phase 2: Contract Negotiation\n")
         return False
 
     # Phase 3: Transfer Process
-    transfer_id = phase_3_transfer_process(config, asset_id, agreement_id)
+    transfer_id = phase_3_transfer_process(
+        config, asset_id, agreement_id, target_address, target_did
+    )
     if not transfer_id:
         logger.error("\n❌ E2E Test Failed - Phase 3: Transfer Process\n")
         return False
@@ -1029,6 +1058,14 @@ def main():
         help=f"Target asset ID (default: {DEFAULT_TARGET_ASSET_ID})",
     )
     parser.add_argument(
+        "--target-address",
+        help="Target DSP address (default: provider's own address)",
+    )
+    parser.add_argument(
+        "--target-did",
+        help="Target DID (default: provider's own DID)",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose output (DEBUG level)",
@@ -1049,7 +1086,13 @@ def main():
         return 1
 
     # Run E2E test
-    success = run_e2e_test(config, args.asset_id, args.skip_prerequisites)
+    success = run_e2e_test(
+        config,
+        args.asset_id,
+        target_address=args.target_address,
+        target_did=args.target_did,
+        skip_prerequisites=args.skip_prerequisites,
+    )
 
     return 0 if success else 1
 
