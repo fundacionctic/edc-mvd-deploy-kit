@@ -123,7 +123,8 @@ tasks:
     desc: Stop services and remove data
     prompt: This will delete all Issuer data. Continue?
     cmds:
-      - docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} down -v
+      - cmd: docker compose -p {{.ISSUER_COMPOSE_PROJECT_NAME}} -f {{.DOCKER_COMPOSE_FILE}} down -v
+        ignore_error: true
 
   issuer:proxy-postgres:
     desc: Run an emphemeral container that exposes the issuer database on the host
