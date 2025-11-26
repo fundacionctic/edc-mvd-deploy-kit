@@ -35,9 +35,7 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-### 2. Deploy Complete Dataspace
-
-**Important**: Follow this order for initial deployment:
+### 2. Deploy Data Space Components
 
 ```bash
 # Step 1: Build Docker images (required first time and after source updates)
@@ -52,17 +50,18 @@ task issuer:deploy
 task provider:deploy
 ```
 
-> **Note**: The Issuer Service must be running before deploying the Provider, as the Provider requests credentials during deployment.
+> [!IMPORTANT]
+> The Issuer Service must be running before deploying the Provider, as the Provider requests credentials during deployment.
 
 ## Deployment Scenarios
 
-This codebase supports flexible deployment configurations to align with dataspace principles, where participants can share infrastructure or deploy independently.
+Supports flexible deployment configurations for shared or independent participant infrastructure.
 
-### Scenario A: Full Local Deployment (Default)
+### Scenario A: Full Deployment (Issuer + Provider)
 
-**Use Case**: Local development, testing, and self-contained demos
+**Use Case**: Local development, testing, or hosting both services.
 
-**Description**: Deploy both Issuer and Provider services locally using Docker Compose.
+**Description**: Deploy both Issuer and Provider services locally using Docker Compose. This setup is self-contained.
 
 ```bash
 # 1. Configure .env
@@ -82,46 +81,9 @@ task provider:deploy
 
 **Result**: Both services run locally, Issuer issues credentials to Provider.
 
----
+#### Adding New Participants
 
-### Scenario B: Provider with External Issuer (Production)
-
-Deploy Provider only, connect to external Issuer Service.
-
-**Configuration**:
-
-```bash
-cp .env.example .env
-# Edit .env:
-DEPLOY_ISSUER=false
-ISSUER_PUBLIC_HOST=issuer.dataspace.example.com
-ISSUER_SUPERUSER_KEY=<credentials-from-issuer-admin>
-```
-
-**Deployment**:
-
-```bash
-task build
-task provider:deploy
-```
-
----
-
-### Scenario C: Issuer Only (Infrastructure Providers)
-
-Deploy Issuer Service for multiple participants.
-
-```bash
-cp .env.example .env
-# Set: ISSUER_PUBLIC_HOST=issuer.dataspace.example.com
-task build
-task issuer:deploy
-# Expose ports: 10010, 10012, 10013, 10016
-```
-
-**Adding New Participants**:
-
-After deploying the Issuer, new participants can be dynamically added to the dataspace without restarting the Issuer Service:
+After deploying the Issuer, new participants can be dynamically added to the dataspace without restarting the Issuer Service using the `issuer:add-participant` task:
 
 ```bash
 # Add a new provider to the dataspace
@@ -137,13 +99,39 @@ task issuer:add-participant \
   PROCESSING_LEVEL=sensitive
 ```
 
-### Deployment Scenarios
+> [!IMPORTANT]
+> If participants are not added, they will not be able to receive verifiable credentials from the issuer.
 
-| Scenario               | Components        | Use Case                 | Network              |
-| ---------------------- | ----------------- | ------------------------ | -------------------- |
-| **A: Complete Local**  | Issuer + Provider | Development/Testing      | Local only           |
-| **B: External Issuer** | Provider only     | Production participants  | Remote Issuer access |
-| **C: Issuer Only**     | Issuer only       | Infrastructure providers | Public accessibility |
+---
+
+### Scenario B: Provider Only (External Issuer)
+
+**Use Case**: Joining an existing dataspace where an Issuer is already available.
+
+**Description**: Deploy Provider only, connect to an external Issuer Service deployed by another participant.
+
+**Configuration**:
+
+```bash
+cp .env.example .env
+# Edit .env:
+DEPLOY_ISSUER=false
+ISSUER_PUBLIC_HOST=issuer.dataspace.example.com
+```
+
+**Deployment**:
+
+```bash
+task build
+task provider:deploy
+```
+
+### Summary
+
+| Scenario               | Components        | Use Case                    |
+| ---------------------- | ----------------- | --------------------------- |
+| **A: Full Deployment** | Issuer + Provider | Development/Testing/Hosting |
+| **B: Provider Only**   | Provider only     | Joining existing dataspace  |
 
 ---
 
