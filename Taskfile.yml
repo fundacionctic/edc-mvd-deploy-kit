@@ -136,6 +136,29 @@ tasks:
         alpine:latest
         sh -c "set -xe && apk add --no-cache socat && socat TCP-LISTEN:5432,fork TCP:{{.ISSUER_PG_CONTAINER_NAME}}:5432"
 
+  issuer:add-participant:
+    desc: Add a new participant to the running Issuer Service
+    requires:
+      vars: [PARTICIPANT_DID, PARTICIPANT_NAME]
+    vars:
+      # Membership type: 2=Provider (offers data), 3=Consumer (consumes data)
+      MEMBERSHIP_TYPE: '{{.MEMBERSHIP_TYPE | default "2"}}'
+      # Processing level: "processing" (standard) or "sensitive" (high-security)
+      PROCESSING_LEVEL: '{{.PROCESSING_LEVEL | default "processing"}}'
+      # Contract version: semantic versioning (e.g., 1.0.0)
+      CONTRACT_VERSION: '{{.CONTRACT_VERSION | default "1.0.0"}}'
+      # Optional issuer DID override
+      ISSUER_DID_FLAG: '{{if .ISSUER_DID}}--issuer-did "{{.ISSUER_DID}}"{{end}}'
+    cmds:
+      - |
+        {{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/add_participant.py \
+          --did "{{.PARTICIPANT_DID}}" \
+          --name "{{.PARTICIPANT_NAME}}" \
+          --membership-type {{.MEMBERSHIP_TYPE}} \
+          --processing-level {{.PROCESSING_LEVEL}} \
+          --contract-version {{.CONTRACT_VERSION}} \
+          {{.ISSUER_DID_FLAG}}
+
   # ============================================================
   # PROVIDER PARTICIPANT TASKS
   # ============================================================
