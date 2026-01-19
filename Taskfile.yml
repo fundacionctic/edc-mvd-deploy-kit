@@ -31,6 +31,7 @@ vars:
   PROVIDER_IH_CONTAINER_NAME: mvd-provider-identityhub
   PROVIDER_VAULT_CONTAINER_NAME: mvd-provider-vault
   PROVIDER_CP_CONTAINER_NAME: mvd-provider-controlplane
+  ISSUER_VAULT_CONTAINER_NAME: mvd-issuer-vault
   ISSUER_PG_CONTAINER_NAME: mvd-issuer-postgres
 
   # HTTP Tracing Configuration
@@ -111,6 +112,24 @@ tasks:
     desc: Seed Issuer with attestations and credentials
     cmds:
       - "{{.PYTHON_CMD}} {{.ISSUER_SCRIPTS_DIR}}/seed_issuer.py"
+
+  issuer:export-vault-secrets:
+    desc: Export Issuer Vault secrets to a local JSON file
+    cmds:
+      - >
+        "{{.PYTHON_CMD}}" "{{.SCRIPTS_DIR}}/vault_secrets.py" export
+        --container-name "{{.ISSUER_VAULT_CONTAINER_NAME}}"
+        --vault-token-env ISSUER_VAULT_TOKEN
+        --output "{{.ROOT_DIR}}/secrets/issuer-vault.json"
+
+  issuer:reseed-vault-secrets:
+    desc: Reseed Issuer Vault secrets from a local JSON file
+    cmds:
+      - >
+        "{{.PYTHON_CMD}}" "{{.SCRIPTS_DIR}}/vault_secrets.py" reseed
+        --container-name "{{.ISSUER_VAULT_CONTAINER_NAME}}"
+        --vault-token-env ISSUER_VAULT_TOKEN
+        --output "{{.ROOT_DIR}}/secrets/issuer-vault.json"
 
   issuer:deploy:
     desc: Complete Issuer deployment
@@ -286,6 +305,24 @@ tasks:
       - >
         docker exec {{.PROVIDER_VAULT_CONTAINER_NAME}}
         sh -c 'VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN={{.PROVIDER_VAULT_TOKEN}} vault kv list secret/'
+
+  provider:export-vault-secrets:
+    desc: Export Provider Vault secrets to a local JSON file
+    cmds:
+      - >
+        "{{.PYTHON_CMD}}" "{{.SCRIPTS_DIR}}/vault_secrets.py" export
+        --container-name "{{.PROVIDER_VAULT_CONTAINER_NAME}}"
+        --vault-token-env PROVIDER_VAULT_TOKEN
+        --output "{{.ROOT_DIR}}/secrets/provider-vault.json"
+
+  provider:reseed-vault-secrets:
+    desc: Reseed Provider Vault secrets from a local JSON file
+    cmds:
+      - >
+        "{{.PYTHON_CMD}}" "{{.SCRIPTS_DIR}}/vault_secrets.py" reseed
+        --container-name "{{.PROVIDER_VAULT_CONTAINER_NAME}}"
+        --vault-token-env PROVIDER_VAULT_TOKEN
+        --output "{{.ROOT_DIR}}/secrets/provider-vault.json"
 
   # ============================================================
   # END-TO-END TESTING TASKS

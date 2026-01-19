@@ -1,6 +1,9 @@
 > [!WARNING]
 > Currently, only **allow-all** policies work, whether for the access or contract policy. [This is a known issue that needs to be investigated](https://github.com/fundacionctic/edc-mvd-deploy-kit/issues/1).
 
+> [!WARNING]
+> The Vault export/reseed workflow is a dev-only convenience and is not production-ready.
+
 # EDC MVD Dataspace Kit
 
 A parameterized deployment toolkit for Eclipse EDC dataspaces, evolved from the [original Eclipse Dataspace Components (EDC) MVD](https://github.com/eclipse-edc/MinimumViableDataspace). Built with Docker Compose for simplified deployment, this kit enables configuration of dataspace participants and supports both local development and internet-exposed production environments.
