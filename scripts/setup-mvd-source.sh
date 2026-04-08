@@ -78,9 +78,11 @@ else
   # Check if MVD_REF looks like a commit hash (7-40 hex chars)
   if [[ "$MVD_REF" =~ ^[0-9a-f]{7,40}$ ]]; then
     # Clone without specifying branch, then checkout commit
+    # Use -f to handle line-ending changes from .gitattributes that
+    # make files like gradlew.bat appear modified after initial clone
     git clone "$MVD_REPO_URL" "$MVD_SOURCE_DIR"
     cd "$MVD_SOURCE_DIR"
-    git checkout "$MVD_REF"
+    git checkout -f "$MVD_REF"
     cd - > /dev/null
   else
     # Clone with branch specified

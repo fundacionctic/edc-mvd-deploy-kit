@@ -3,7 +3,7 @@ version: "3"
 vars:
   # MVD Configuration
   MVD_SOURCE_DIR: "{{.ROOT_DIR}}/edc-mvds"
-  MVD_REF: 69e4b0b # Can be a branch name (e.g., 'main', 'release/0.14.0') or commit ID (e.g., '69e4b0b')
+  MVD_REF: 0.14.1 # Can be a branch name (e.g., 'main', 'release/0.14.0'), tag (e.g., '0.14.1'), or commit ID
   MVD_REPO_URL: https://github.com/eclipse-edc/MinimumViableDataspace
   DOCKER_IMAGES: "controlplane dataplane identity-hub"
 
